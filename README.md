@@ -1,16 +1,16 @@
-# AI Hub - AI 学习项目
+# AI Hub - 企业级 AI 集成实践平台
 
-基于 Spring Boot 3 + LangChain4j 的 AI 学习项目，展示多种主流 AI 集成模式。
+基于 Spring Boot 3 + LangChain4j 构建的企业级 AI 应用开发框架，展示生产环境中主流 AI 能力的集成模式与最佳实践。
 
 ## 项目简介
 
-这是一个演示项目，展示了如何在 Spring Boot 应用中集成各类 AI 能力：
+这是一个完整的 Java 生态 AI 应用开发示范项目，展示如何在企业级 Spring Boot 应用中系统化集成各类先进 AI 能力。项目包含从基础 RAG 问答到高级多 Agent 协作的多种 AI 开发模式，同时提供完整的用户认证、数据持久化、前后端分离的全栈应用示例：
 
-- **RAG 检索增强生成** - 基于文档的问答助手，支持持久化向量存储
-- **多 Agent 顺序工作流** - 创意写作 -> 受众适配 -> 风格编辑的三阶段工作流
-- **MCP 模型上下文协议** - 让 AI 安全访问本地文件系统
-- **AI 健身计划生成器** - 完整全栈 AI 应用，根据用户偏好生成个性化周训练计划
-- **JWT 认证授权** - 完整的用户认证体系
+- **RAG 检索增强生成** - 基于私有文档的问答助手，支持磁盘持久化向量存储，启动时免重新 ingestion
+- **多 Agent 协作工作流** - 基于专业化分工的多 Agent 顺序处理工作流，展示模块化 AI 能力编排
+- **MCP 模型上下文协议** - 遵循 Model Context Protocol 让 AI 安全访问本地文件系统，支持代码分析与文档处理
+- **AI 个性化健身计划生成器** - 完整全栈 AI 应用，根据用户训练偏好智能生成个性化周训练计划
+- **JWT 无状态认证授权** - 基于 Spring Security 6.x 的完整用户认证与权限控制体系
 
 ## 技术栈
 
@@ -18,9 +18,9 @@
 - Java 21
 - Spring Boot 3.5.11
 - LangChain4j 1.11.0-beta19
-- MyBatis-Plus 3.5.5
-- MySQL + Druid 连接池
-- JJWT 0.12.6 (JWT)
+- MyBatis-Plus 3.5.13
+- MySQL 8.0 + Druid 连接池
+- JJWT 0.12.6 (JWT 无状态认证)
 
 **AI 模型：**
 - 聊天模型：ByteDance Ark (豆包) - OpenAI 兼容接口
@@ -136,46 +136,54 @@ npm run dev
 
 前端默认启动在 `http://localhost:5173`
 
-## 功能说明
+## 功能特性
 
-### 1. RAG 问答助手
+### 1. RAG 检索增强问答助手
 
-- 启动时自动加载 `src/main/resources/docs/` 下的文档
-- 分割文档并创建嵌入，持久化到 `embedding-store.json`
-- 基于用户问题检索相关文档片段，给出回答
-- 支持 SSE 流式响应
+企业级 RAG 实现，基于私有文档构建问答系统：
+- 应用启动时自动加载 `src/main/resources/docs/` 目录下的自定义文档
+- 智能文档分割（150 字符最大分段，15 字符重叠）
+- 嵌入向量磁盘持久化存储，重启后免重新 ingestion
+- 基于相似度检索相关文档片段，结合 LLM 生成准确回答
+- 支持 SSE 流式响应，实现打字机效果
 
 **接口示例：**
 ```
 GET /demo/assistant/chat?memoryId=test&message=请介绍一下文档内容
 ```
 
-### 2. 多 Agent 故事生成工作流
+### 2. 多 Agent 专业化协作工作流
 
-1. **CreativeWriter** - 根据主题生成故事初稿
-2. **AudienceEditor** - 根据受众适配故事内容
-3. **StyleEditor** - 根据风格要求改写故事
+展示模块化 AI 能力编排，通过专业化分工提升输出质量：
+
+1. **CreativeWriter** - 根据主题生成内容初稿
+2. **AudienceEditor** - 根据受众群体适配内容难度与风格
+3. **StyleEditor** - 根据指定风格要求进行最终润色改写
 
 **接口示例：**
 ```
-GET /demo/assistant/story/work/workFlow?topic=一只猫&audience=儿童&style=幽默
+GET /demo/assistant/story/work/workFlow?topic=人工智能&audience=产品经理&style=专业严谨
 ```
 
-### 3. AI 健身计划生成器
+### 3. AI 个性化健身计划生成器
 
-用户填写训练偏好，AI 生成个性化周计划：
-- 支持不同训练水平（新手/中级/进阶）
-- 支持不同健身目标（增肌/减脂/保持健康）
-- 可指定重点训练部位
-- 可指定可用器械
-- 异步生成，前端可轮询状态
-- 自动生成每个动作的 B 站视频链接
+完整的全栈 AI 应用范例，包含用户系统、数据持久化、异步处理：
 
-所有计划保存到数据库，支持重新生成。
+用户提交训练偏好后，AI 生成科学的个性化周训练计划：
+- 支持三级训练水平（新手/中级/进阶）
+- 支持三种健身目标（增肌/减脂/保持健康）
+- 可指定重点训练部位与可用器械
+- 异步 AI 生成，前端可轮询生成状态
+- 自动为每个动作生成 B 站教学视频链接
+- 所有计划持久化存储，支持随时查看与重新生成
 
 ### 4. MCP 文件系统集成
 
-通过 [Model Context Protocol](https://modelcontextprotocol.io/) 让 AI 安全访问你指定的本地目录，AI 可以读取文件内容帮助你分析代码和文档。
+遵循 [Model Context Protocol](https://modelcontextprotocol.io/) 标准，授权 AI 安全访问本地文件系统：
+- AI 可以读取指定目录内的代码与文档
+- 支持 AI 辅助代码分析、文档总结、问题排查
+- 可配置允许访问的目录、超时参数
+- 跨平台支持，自动适配 Windows/Linux/macOS
 
 ## 主要 API 端点
 

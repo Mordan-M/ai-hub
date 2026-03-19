@@ -16,8 +16,15 @@
 
     <properties>
         <java.version>21</java.version>
-        <!-- ✅ 统一管理版本号，方便升级 -->
+        <!-- 统一管理版本号，方便升级 -->
         <langchain4j.version>1.11.0-beta19</langchain4j.version>
+        <langchain4j-openai.version>1.11.0</langchain4j-openai.version>
+        <langchain4j-dashscope.version>1.1.0-beta7</langchain4j-dashscope.version>
+        <mybatis-plus.version>3.5.13</mybatis-plus.version>
+        <druid.version>1.2.28</druid.version>
+        <jackson.version>2.18.6</jackson.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <spring-boot.version>3.5.11</spring-boot.version>
     </properties>
 
     <dependencies>
@@ -39,7 +46,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.18.6</version>
+            <version>${jackson.version}</version>
         </dependency>
 
         <!-- LangChain4j 核心 -->
@@ -65,14 +72,14 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-community-dashscope-spring-boot-starter</artifactId>
-            <version>1.1.0-beta7</version>
+            <version>${langchain4j-dashscope.version}</version>
         </dependency>
 
-        <!-- ✅ 新增：OpenAI 核心包，包含 OpenAiTokenizer -->
+        <!-- OpenAI 核心包，包含 OpenAiTokenizer -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
-            <version>1.11.0</version>
+            <version>${langchain4j-openai.version}</version>
         </dependency>
 
         <!-- Reactor 响应式支持 -->
@@ -93,13 +100,13 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-            <version>3.5.13</version>
+            <version>${mybatis-plus.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-jsqlparser</artifactId>
-            <version>3.5.13</version>
+            <version>${mybatis-plus.version}</version>
         </dependency>
 
         <!-- MySQL Connector -->
@@ -113,7 +120,7 @@
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>druid-spring-boot-3-starter</artifactId>
-            <version>1.2.28</version>
+            <version>${druid.version}</version>
         </dependency>
 
         <!-- Lombok (for entity annotations) -->
@@ -139,18 +146,18 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
-            <version>0.12.6</version>
+            <version>${jjwt.version}</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
-            <version>0.12.6</version>
+            <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
-            <version>0.12.6</version>
+            <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
     </dependencies>
@@ -160,7 +167,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>3.5.11</version>
+                <version>${spring-boot.version}</version>
             </plugin>
         </plugins>
     </build>
