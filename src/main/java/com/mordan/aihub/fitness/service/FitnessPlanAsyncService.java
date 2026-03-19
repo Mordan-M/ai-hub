@@ -11,9 +11,6 @@ import com.mordan.aihub.fitness.domain.entity.DailyTraining;
 import com.mordan.aihub.fitness.domain.entity.UserPreference;
 import com.mordan.aihub.fitness.domain.entity.WeeklyPlan;
 import com.mordan.aihub.fitness.domain.vo.UserPreferenceRequest;
-import com.mordan.aihub.fitness.mapper.DailyExerciseItemMapper;
-import com.mordan.aihub.fitness.mapper.DailyTrainingMapper;
-import com.mordan.aihub.fitness.mapper.WeeklyPlanMapper;
 import com.mordan.aihub.fitness.util.VideoLinkBuilder;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -35,13 +32,13 @@ import java.util.List;
 public class FitnessPlanAsyncService {
 
     @Resource
-    private WeeklyPlanMapper weeklyPlanMapper;
+    private WeeklyPlanService weeklyPlanService;
 
     @Resource
-    private DailyTrainingMapper dailyTrainingMapper;
+    private DailyTrainingService dailyTrainingService;
 
     @Resource
-    private DailyExerciseItemMapper dailyExerciseItemMapper;
+    private DailyExerciseItemService dailyExerciseItemService;
 
     @Resource
     private FitnessPlanAiService fitnessPlanAiService;
@@ -119,7 +116,7 @@ public class FitnessPlanAsyncService {
                     .warmUpNotes(day.getWarmUpNotes())
                     .coolDownNotes(day.getCoolDownNotes())
                     .build();
-            dailyTrainingMapper.insert(training);
+            dailyTrainingService.save(training);
 
             // 如果是休息日，不需要动作
             if (day.isRestDay() || day.getExercises() == null) {
@@ -140,7 +137,7 @@ public class FitnessPlanAsyncService {
                         .coachNotes(exercise.getCoachNotes())
                         .bilibiliUrl(VideoLinkBuilder.buildBilibiliUrl(exercise.getNameZh()))
                         .build();
-                dailyExerciseItemMapper.insert(item);
+                dailyExerciseItemService.save(item);
             }
         }
     }
@@ -150,15 +147,12 @@ public class FitnessPlanAsyncService {
     }
 
     private void updatePlanStatus(Long planId, String status, String title, String summary) {
-        WeeklyPlan plan = new WeeklyPlan();
-        plan.setId(planId);
-        plan.setStatus(status);
-        if (title != null) {
-            plan.setTitle(title);
-        }
-        if (summary != null) {
-            plan.setSummary(summary);
-        }
-        weeklyPlanMapper.updateById(plan);
+        // 使用 lambdaUpdate 只更新必要字段，符合规范五
+        weeklyPlanService.lambdaUpdate()
+                .eq(WeeklyPlan::getId, planId)
+                .set(WeeklyPlan::getStatus, status)
+                .set(title != null, WeeklyPlan::getTitle, title)
+                .set(summary != null, WeeklyPlan::getSummary, summary)
+                .update();
     }
 }
