@@ -1,0 +1,164 @@
+package com.mordan.aihub.fitness.service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mordan.aihub.fitness.ai.FitnessPlanAiService;
+import com.mordan.aihub.fitness.domain.ai.DayResult;
+import com.mordan.aihub.fitness.domain.ai.ExerciseResult;
+import com.mordan.aihub.fitness.domain.ai.WeeklyPlanResult;
+import com.mordan.aihub.fitness.domain.entity.DailyExerciseItem;
+import com.mordan.aihub.fitness.domain.entity.DailyTraining;
+import com.mordan.aihub.fitness.domain.entity.UserPreference;
+import com.mordan.aihub.fitness.domain.entity.WeeklyPlan;
+import com.mordan.aihub.fitness.domain.vo.UserPreferenceRequest;
+import com.mordan.aihub.fitness.mapper.DailyExerciseItemMapper;
+import com.mordan.aihub.fitness.mapper.DailyTrainingMapper;
+import com.mordan.aihub.fitness.mapper.WeeklyPlanMapper;
+import com.mordan.aihub.fitness.util.VideoLinkBuilder;
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 健身计划异步生成服务
+ * 独立 Service，确保 @Async 代理正常生效
+ *
+ * @author fitness
+ */
+@Slf4j
+@Service
+public class FitnessPlanAsyncService {
+
+    @Resource
+    private WeeklyPlanMapper weeklyPlanMapper;
+
+    @Resource
+    private DailyTrainingMapper dailyTrainingMapper;
+
+    @Resource
+    private DailyExerciseItemMapper dailyExerciseItemMapper;
+
+    @Resource
+    private FitnessPlanAiService fitnessPlanAiService;
+
+    @Resource
+    private ObjectMapper objectMapper;
+
+    /**
+     * 异步生成健身计划
+     * 使用自定义线程池 fitnessPlanExecutor
+     */
+    @Async("fitnessPlanExecutor")
+    @Transactional
+    public void asyncGeneratePlan(Long planId, UserPreference preference) {
+        try {
+            log.info("开始异步生成健身计划，planId: {}", planId);
+
+            // a. 构建 prompt
+            UserPreferenceRequest request = convertToRequest(preference);
+            String prompt = FitnessPlanPromptBuilder.buildPrompt(request);
+
+            // b. 调用 AI
+            String aiResponse = fitnessPlanAiService.generateWeeklyPlan(prompt);
+
+            // c. 解析 JSON
+            WeeklyPlanResult result;
+            try {
+                result = objectMapper.readValue(aiResponse, WeeklyPlanResult.class);
+            } catch (JsonProcessingException e) {
+                log.error("AI 返回 JSON 解析失败，planId: {}, response: {}", planId, aiResponse, e);
+                updatePlanStatus(planId, WeeklyPlan.STATUS_FAILED);
+                return;
+            }
+
+            // d. 保存结果到数据库
+            savePlanResult(planId, result);
+
+            // e. 更新计划状态为 done
+            updatePlanStatus(planId, WeeklyPlan.STATUS_DONE, result.getTitle(), result.getSummary());
+
+            log.info("健身计划生成完成，planId: {}", planId);
+        } catch (Exception e) {
+            log.error("健身计划生成异常，planId: {}", planId, e);
+            updatePlanStatus(planId, WeeklyPlan.STATUS_FAILED);
+        }
+    }
+
+    private UserPreferenceRequest convertToRequest(UserPreference preference) {
+        UserPreferenceRequest request = new UserPreferenceRequest();
+        request.setExperienceLevel(preference.getExperienceLevel());
+        request.setGoal(preference.getGoal());
+        try {
+            List<String> focusMuscles = objectMapper.readValue(preference.getFocusMuscles(), List.class);
+            request.setFocusMuscles(focusMuscles);
+        } catch (JsonProcessingException e) {
+            request.setFocusMuscles(new ArrayList<>());
+        }
+        request.setEquipment(preference.getEquipment());
+        request.setSessionDuration(preference.getSessionDuration());
+        request.setTrainingDaysPerWeek(preference.getTrainingDaysPerWeek());
+        request.setTrainingStyle(preference.getTrainingStyle());
+        request.setInjuryNotes(preference.getInjuryNotes());
+        return request;
+    }
+
+    private void savePlanResult(Long planId, WeeklyPlanResult result) {
+        int sort;
+        for (DayResult day : result.getDays()) {
+            // 保存每日训练
+            DailyTraining training = DailyTraining.builder()
+                    .planId(planId)
+                    .dayOfWeek(day.getDayOfWeek())
+                    .isRestDay(day.isRestDay() ? (byte) 1 : (byte) 0)
+                    .focusMuscleGroup(day.getFocusMuscleGroup())
+                    .warmUpNotes(day.getWarmUpNotes())
+                    .coolDownNotes(day.getCoolDownNotes())
+                    .build();
+            dailyTrainingMapper.insert(training);
+
+            // 如果是休息日，不需要动作
+            if (day.isRestDay() || day.getExercises() == null) {
+                continue;
+            }
+
+            // 保存每个动作
+            sort = 0;
+            for (ExerciseResult exercise : day.getExercises()) {
+                DailyExerciseItem item = DailyExerciseItem.builder()
+                        .dailyTrainingId(training.getId())
+                        .nameZh(exercise.getNameZh())
+                        .nameEn(exercise.getNameEn())
+                        .sortOrder(sort++)
+                        .sets(exercise.getSets())
+                        .reps(exercise.getReps())
+                        .restSeconds(exercise.getRestSeconds())
+                        .coachNotes(exercise.getCoachNotes())
+                        .bilibiliUrl(VideoLinkBuilder.buildBilibiliUrl(exercise.getNameZh()))
+                        .build();
+                dailyExerciseItemMapper.insert(item);
+            }
+        }
+    }
+
+    private void updatePlanStatus(Long planId, String status) {
+        updatePlanStatus(planId, status, null, null);
+    }
+
+    private void updatePlanStatus(Long planId, String status, String title, String summary) {
+        WeeklyPlan plan = new WeeklyPlan();
+        plan.setId(planId);
+        plan.setStatus(status);
+        if (title != null) {
+            plan.setTitle(title);
+        }
+        if (summary != null) {
+            plan.setSummary(summary);
+        }
+        weeklyPlanMapper.updateById(plan);
+    }
+}
