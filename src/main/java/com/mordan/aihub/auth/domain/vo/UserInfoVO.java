@@ -1,7 +1,5 @@
 package com.mordan.aihub.auth.domain.vo;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
 
 /**
@@ -9,31 +7,29 @@ import java.time.LocalDateTime;
  *
  * @author auth
  */
-@Data
-public class UserInfoVO {
-
+public record UserInfoVO(
     /**
      * 用户ID
      */
-    private Long userId;
+    Long userId,
 
     /**
      * 用户名
      */
-    private String username;
+    String username,
 
     /**
      * 昵称
      */
-    private String nickname;
+    String nickname,
 
     /**
      * 头像地址
      */
-    private String avatarUrl;
+    String avatarUrl,
 
     /**
      * 创建时间
      */
-    private LocalDateTime createdAt;
-}
+    LocalDateTime createdAt
+) {}

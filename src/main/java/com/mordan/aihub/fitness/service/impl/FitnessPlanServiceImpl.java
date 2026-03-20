@@ -61,14 +61,14 @@ public class FitnessPlanServiceImpl extends ServiceImpl<WeeklyPlanMapper, Weekly
         // 1. 保存用户偏好
         UserPreference preference = UserPreference.builder()
                 .userId(userId)
-                .experienceLevel(request.getExperienceLevel())
-                .goal(request.getGoal())
-                .focusMuscles(convertFocusMusclesToJson(request.getFocusMuscles()))
-                .equipment(request.getEquipment())
-                .sessionDuration(request.getSessionDuration())
-                .trainingDaysPerWeek(request.getTrainingDaysPerWeek())
-                .trainingStyle(request.getTrainingStyle())
-                .injuryNotes(request.getInjuryNotes())
+                .experienceLevel(request.experienceLevel())
+                .goal(request.goal())
+                .focusMuscles(convertFocusMusclesToJson(request.focusMuscles()))
+                .equipment(request.equipment())
+                .sessionDuration(request.sessionDuration())
+                .trainingDaysPerWeek(request.trainingDaysPerWeek())
+                .trainingStyle(request.trainingStyle())
+                .injuryNotes(request.injuryNotes())
                 .build();
         userPreferenceService.save(preference);
 
@@ -101,17 +101,16 @@ public class FitnessPlanServiceImpl extends ServiceImpl<WeeklyPlanMapper, Weekly
             throw new RuntimeException("无权限访问该计划");
         }
 
-        WeeklyPlanDetailVO vo = new WeeklyPlanDetailVO();
-        vo.setPlanId(plan.getId());
-        vo.setTitle(plan.getTitle());
-        vo.setSummary(plan.getSummary());
-        vo.setWeekStartDate(plan.getWeekStartDate());
-        vo.setStatus(plan.getStatus());
-
         // 如果还在生成中，只返回基本信息
         if (!WeeklyPlan.STATUS_DONE.equals(plan.getStatus())) {
-            vo.setDays(new ArrayList<>());
-            return vo;
+            return new WeeklyPlanDetailVO(
+                    plan.getId(),
+                    plan.getTitle(),
+                    plan.getSummary(),
+                    plan.getWeekStartDate(),
+                    plan.getStatus(),
+                    new ArrayList<>()
+            );
         }
 
         // 查询每日训练
@@ -122,13 +121,6 @@ public class FitnessPlanServiceImpl extends ServiceImpl<WeeklyPlanMapper, Weekly
 
         List<DailyTrainingVO> dayVOs = new ArrayList<>();
         for (DailyTraining training : dailyTrainings) {
-            DailyTrainingVO dayVo = new DailyTrainingVO();
-            dayVo.setDayOfWeek(training.getDayOfWeek());
-            dayVo.setIsRestDay(training.getIsRestDay() == 1);
-            dayVo.setFocusMuscleGroup(training.getFocusMuscleGroup());
-            dayVo.setWarmUpNotes(training.getWarmUpNotes());
-            dayVo.setCoolDownNotes(training.getCoolDownNotes());
-
             // 查询动作列表
             List<DailyExerciseItem> items = dailyExerciseItemService.lambdaQuery()
                     .eq(DailyExerciseItem::getDailyTrainingId, training.getId())
@@ -137,25 +129,39 @@ public class FitnessPlanServiceImpl extends ServiceImpl<WeeklyPlanMapper, Weekly
 
             List<ExerciseItemVO> itemVOs = getExerciseItemVOS(items);
 
-            dayVo.setExercises(itemVOs);
+            DailyTrainingVO dayVo = new DailyTrainingVO(
+                    training.getDayOfWeek(),
+                    training.getIsRestDay() == 1,
+                    training.getFocusMuscleGroup(),
+                    training.getWarmUpNotes(),
+                    training.getCoolDownNotes(),
+                    itemVOs
+            );
             dayVOs.add(dayVo);
         }
 
-        vo.setDays(dayVOs);
-        return vo;
+        return new WeeklyPlanDetailVO(
+                plan.getId(),
+                plan.getTitle(),
+                plan.getSummary(),
+                plan.getWeekStartDate(),
+                plan.getStatus(),
+                dayVOs
+        );
     }
 
     private static @NonNull List<ExerciseItemVO> getExerciseItemVOS(List<DailyExerciseItem> items) {
         List<ExerciseItemVO> itemVOs = new ArrayList<>();
         for (DailyExerciseItem item : items) {
-            ExerciseItemVO itemVo = new ExerciseItemVO();
-            itemVo.setNameZh(item.getNameZh());
-            itemVo.setNameEn(item.getNameEn());
-            itemVo.setSets(item.getSets());
-            itemVo.setReps(item.getReps());
-            itemVo.setRestSeconds(item.getRestSeconds());
-            itemVo.setCoachNotes(item.getCoachNotes());
-            itemVo.setBilibiliUrl(item.getBilibiliUrl());
+            ExerciseItemVO itemVo = new ExerciseItemVO(
+                    item.getNameZh(),
+                    item.getNameEn(),
+                    item.getSets(),
+                    item.getReps(),
+                    item.getRestSeconds(),
+                    item.getCoachNotes(),
+                    item.getBilibiliUrl()
+            );
             itemVOs.add(itemVo);
         }
         return itemVOs;
@@ -210,20 +216,21 @@ public class FitnessPlanServiceImpl extends ServiceImpl<WeeklyPlanMapper, Weekly
     }
 
     private UserPreferenceRequest convertToRequest(UserPreference preference) {
-        UserPreferenceRequest request = new UserPreferenceRequest();
-        request.setExperienceLevel(preference.getExperienceLevel());
-        request.setGoal(preference.getGoal());
+        List<String> focusMuscles;
         try {
-            List<String> focusMuscles = objectMapper.readValue(preference.getFocusMuscles(), List.class);
-            request.setFocusMuscles(focusMuscles);
+            focusMuscles = objectMapper.readValue(preference.getFocusMuscles(), List.class);
         } catch (JsonProcessingException e) {
-            request.setFocusMuscles(new ArrayList<>());
+            focusMuscles = new ArrayList<>();
         }
-        request.setEquipment(preference.getEquipment());
-        request.setSessionDuration(preference.getSessionDuration());
-        request.setTrainingDaysPerWeek(preference.getTrainingDaysPerWeek());
-        request.setTrainingStyle(preference.getTrainingStyle());
-        request.setInjuryNotes(preference.getInjuryNotes());
-        return request;
+        return new UserPreferenceRequest(
+                preference.getExperienceLevel(),
+                preference.getGoal(),
+                focusMuscles,
+                preference.getEquipment(),
+                preference.getSessionDuration(),
+                preference.getTrainingDaysPerWeek(),
+                preference.getTrainingStyle(),
+                preference.getInjuryNotes()
+        );
     }
 }

@@ -1,37 +1,33 @@
 package com.mordan.aihub.auth.domain.vo;
 
-import lombok.Data;
-
 /**
  * 登录响应结果
  *
  * @author auth
  */
-@Data
-public class LoginVO {
-
+public record LoginVO(
     /**
      * 用户ID
      */
-    private Long userId;
+    Long userId,
 
     /**
      * 用户名
      */
-    private String username;
+    String username,
 
     /**
      * 昵称
      */
-    private String nickname;
+    String nickname,
 
     /**
      * 头像地址
      */
-    private String avatarUrl;
+    String avatarUrl,
 
     /**
      * JWT Token，前端存入 localStorage 后续请求放在 Header Authorization 中
      */
-    private String token;
-}
+    String token
+) {}

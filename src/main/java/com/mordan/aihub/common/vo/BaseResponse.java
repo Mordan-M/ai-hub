@@ -1,7 +1,5 @@
 package com.mordan.aihub.common.vo;
 
-import lombok.Data;
-
 import java.io.Serializable;
 
 /**
@@ -9,20 +7,14 @@ import java.io.Serializable;
  *
  * @param <T>
  */
-@Data
-public class BaseResponse<T> implements Serializable {
-
-    private int code;
-
-    private T data;
-
-    private String message;
-
-    public BaseResponse(int code, T data, String message) {
-        this.code = code;
-        this.data = data;
-        this.message = message;
-    }
+public record BaseResponse<T>(
+    /** 状态码 */
+    int code,
+    /** 返回数据 */
+    T data,
+    /** 返回消息 */
+    String message
+) implements Serializable {
 
     public BaseResponse(int code, T data) {
         this(code, data, "");

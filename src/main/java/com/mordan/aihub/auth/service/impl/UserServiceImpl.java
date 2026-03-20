@@ -44,7 +44,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UserInfoVO register(RegisterRequest request) {
         // 1. 检查 username 是否已存在，存在则抛出业务异常（用户名已被占用）
         User existUser = this.lambdaQuery()
-                .eq(User::getUsername, request.getUsername())
+                .eq(User::getUsername, request.username())
                 .one();
         if (existUser != null) {
             throw new RuntimeException("用户名已被占用");
@@ -52,14 +52,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         // 2. 密码用 BCryptPasswordEncoder 加密后存入 users 表
         // 3. nickname 若未填写，默认等于 username
-        String nickname = request.getNickname();
+        String nickname = request.nickname();
         if (nickname == null || nickname.isBlank()) {
-            nickname = request.getUsername();
+            nickname = request.username();
         }
 
         User user = User.builder()
-                .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .username(request.username())
+                .password(passwordEncoder.encode(request.password()))
                 .nickname(nickname)
                 .avatarUrl("https://img2.baidu.com/it/u=735961080,1059579988&fm=253&fmt=auto&app=120&f=JPEG?w=500&h=662")
                 .status((byte) 1)
@@ -76,7 +76,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         try {
             // 1. 调用 AuthenticationManager.authenticate() 触发 Spring Security 认证
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                    new UsernamePasswordAuthenticationToken(request.username(), request.password())
             );
 
             // 2. 认证成功
@@ -84,20 +84,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
             // 根据用户名查询用户信息
             User user = this.lambdaQuery()
-                    .eq(User::getUsername, request.getUsername())
+                    .eq(User::getUsername, request.username())
                     .one();
 
             // 3. 生成 Token
             String token = jwtTokenProvider.generateToken(user.getId(), user.getUsername());
 
             // 4. 返回 LoginVO
-            LoginVO loginVO = new LoginVO();
-            loginVO.setUserId(user.getId());
-            loginVO.setUsername(user.getUsername());
-            loginVO.setNickname(user.getNickname());
-            loginVO.setAvatarUrl(user.getAvatarUrl());
-            loginVO.setToken(token);
-            return loginVO;
+            return new LoginVO(
+                    user.getId(),
+                    user.getUsername(),
+                    user.getNickname(),
+                    user.getAvatarUrl(),
+                    token
+            );
 
         } catch (Exception e) {
             // 认证失败（密码错误 / 用户不存在）时捕获异常，统一抛出业务异常（用户名或密码错误）
@@ -144,15 +144,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * 将毫秒时间戳转换为 LocalDateTime
      */
     private UserInfoVO convertToUserInfoVO(User user) {
-        UserInfoVO vo = new UserInfoVO();
-        vo.setUserId(user.getId());
-        vo.setUsername(user.getUsername());
-        vo.setNickname(user.getNickname());
-        vo.setAvatarUrl(user.getAvatarUrl());
+        LocalDateTime createdAt = null;
         if (user.getCreatedAt() != null) {
             Instant instant = Instant.ofEpochMilli(user.getCreatedAt());
-            vo.setCreatedAt(LocalDateTime.ofInstant(instant, ZoneId.systemDefault()));
+            createdAt = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
         }
-        return vo;
+        return new UserInfoVO(
+                user.getId(),
+                user.getUsername(),
+                user.getNickname(),
+                user.getAvatarUrl(),
+                createdAt
+        );
     }
 }

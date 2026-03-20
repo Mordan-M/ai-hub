@@ -1,7 +1,5 @@
 package com.mordan.aihub.fitness.domain.ai;
 
-import lombok.Data;
-
 import java.util.List;
 
 /**
@@ -9,13 +7,11 @@ import java.util.List;
  *
  * @author fitness
  */
-@Data
-public class WeeklyPlanResult {
-
+public record WeeklyPlanResult(
     /** 计划标题 */
-    private String title;
+    String title,
     /** 整体计划说明（200字以内） */
-    private String summary;
+    String summary,
     /** 每日训练列表 */
-    private List<DayResult> days;
-}
+    List<DayResult> days
+) {}

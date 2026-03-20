@@ -1,27 +1,23 @@
 package com.mordan.aihub.fitness.domain.vo;
 
-import lombok.Data;
-
 /**
  * 健身动作详情 VO
  *
  * @author fitness
  */
-@Data
-public class ExerciseItemVO {
-
+public record ExerciseItemVO(
     /** 动作中文名 */
-    private String nameZh;
+    String nameZh,
     /** 动作英文名 */
-    private String nameEn;
+    String nameEn,
     /** 组数 */
-    private Integer sets;
+    Integer sets,
     /** 次数或时长，如：10-12 或 30s */
-    private String reps;
+    String reps,
     /** 组间休息秒数 */
-    private Integer restSeconds;
+    Integer restSeconds,
     /** AI生成的动作要点提示 */
-    private String coachNotes;
+    String coachNotes,
     /** B站视频搜索跳转链接 */
-    private String bilibiliUrl;
-}
+    String bilibiliUrl
+) {}

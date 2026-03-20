@@ -77,7 +77,7 @@ public class FitnessPlanAsyncService {
             savePlanResult(planId, result);
 
             // e. 更新计划状态为 done
-            updatePlanStatus(planId, WeeklyPlan.STATUS_DONE, result.getTitle(), result.getSummary());
+            updatePlanStatus(planId, WeeklyPlan.STATUS_DONE, result.title(), result.summary());
 
             log.info("健身计划生成完成，planId: {}", planId);
         } catch (Exception e) {
@@ -87,55 +87,56 @@ public class FitnessPlanAsyncService {
     }
 
     private UserPreferenceRequest convertToRequest(UserPreference preference) {
-        UserPreferenceRequest request = new UserPreferenceRequest();
-        request.setExperienceLevel(preference.getExperienceLevel());
-        request.setGoal(preference.getGoal());
+        List<String> focusMuscles;
         try {
-            List<String> focusMuscles = objectMapper.readValue(preference.getFocusMuscles(), List.class);
-            request.setFocusMuscles(focusMuscles);
+            focusMuscles = objectMapper.readValue(preference.getFocusMuscles(), List.class);
         } catch (JsonProcessingException e) {
-            request.setFocusMuscles(new ArrayList<>());
+            focusMuscles = new ArrayList<>();
         }
-        request.setEquipment(preference.getEquipment());
-        request.setSessionDuration(preference.getSessionDuration());
-        request.setTrainingDaysPerWeek(preference.getTrainingDaysPerWeek());
-        request.setTrainingStyle(preference.getTrainingStyle());
-        request.setInjuryNotes(preference.getInjuryNotes());
-        return request;
+        return new UserPreferenceRequest(
+                preference.getExperienceLevel(),
+                preference.getGoal(),
+                focusMuscles,
+                preference.getEquipment(),
+                preference.getSessionDuration(),
+                preference.getTrainingDaysPerWeek(),
+                preference.getTrainingStyle(),
+                preference.getInjuryNotes()
+        );
     }
 
     private void savePlanResult(Long planId, WeeklyPlanResult result) {
         int sort;
-        for (DayResult day : result.getDays()) {
+        for (DayResult day : result.days()) {
             // 保存每日训练
             DailyTraining training = DailyTraining.builder()
                     .planId(planId)
-                    .dayOfWeek(day.getDayOfWeek())
+                    .dayOfWeek(day.dayOfWeek())
                     .isRestDay(day.isRestDay() ? (byte) 1 : (byte) 0)
-                    .focusMuscleGroup(day.getFocusMuscleGroup())
-                    .warmUpNotes(day.getWarmUpNotes())
-                    .coolDownNotes(day.getCoolDownNotes())
+                    .focusMuscleGroup(day.focusMuscleGroup())
+                    .warmUpNotes(day.warmUpNotes())
+                    .coolDownNotes(day.coolDownNotes())
                     .build();
             dailyTrainingService.save(training);
 
             // 如果是休息日，不需要动作
-            if (day.isRestDay() || day.getExercises() == null) {
+            if (day.isRestDay() || day.exercises() == null) {
                 continue;
             }
 
             // 保存每个动作
             sort = 0;
-            for (ExerciseResult exercise : day.getExercises()) {
+            for (ExerciseResult exercise : day.exercises()) {
                 DailyExerciseItem item = DailyExerciseItem.builder()
                         .dailyTrainingId(training.getId())
-                        .nameZh(exercise.getNameZh())
-                        .nameEn(exercise.getNameEn())
+                        .nameZh(exercise.nameZh())
+                        .nameEn(exercise.nameEn())
                         .sortOrder(sort++)
-                        .sets(exercise.getSets())
-                        .reps(exercise.getReps())
-                        .restSeconds(exercise.getRestSeconds())
-                        .coachNotes(exercise.getCoachNotes())
-                        .bilibiliUrl(VideoLinkBuilder.buildBilibiliUrl(exercise.getNameZh()))
+                        .sets(exercise.sets())
+                        .reps(exercise.reps())
+                        .restSeconds(exercise.restSeconds())
+                        .coachNotes(exercise.coachNotes())
+                        .bilibiliUrl(VideoLinkBuilder.buildBilibiliUrl(exercise.nameZh()))
                         .build();
                 dailyExerciseItemService.save(item);
             }

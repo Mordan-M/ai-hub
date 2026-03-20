@@ -21,37 +21,37 @@ public class FitnessPlanPromptBuilder {
         sb.append("用户健身信息：\n");
 
         // 经验等级
-        String experienceLevelText = translateExperienceLevel(request.getExperienceLevel());
+        String experienceLevelText = translateExperienceLevel(request.experienceLevel());
         sb.append("- 经验等级：").append(experienceLevelText).append("\n");
 
         // 训练目标
-        String goalText = translateGoal(request.getGoal());
+        String goalText = translateGoal(request.goal());
         sb.append("- 训练目标：").append(goalText).append("\n");
 
         // 重点锻炼部位
-        if (request.getFocusMuscles() != null && !request.getFocusMuscles().isEmpty()) {
-            String focusMusclesText = translateFocusMuscles(request.getFocusMuscles());
+        if (request.focusMuscles() != null && !request.focusMuscles().isEmpty()) {
+            String focusMusclesText = translateFocusMuscles(request.focusMuscles());
             sb.append("- 重点锻炼部位：").append(focusMusclesText).append("\n");
         }
 
         // 可用器材
-        String equipmentText = translateEquipment(request.getEquipment());
+        String equipmentText = translateEquipment(request.equipment());
         sb.append("- 可用器材：").append(equipmentText).append("\n");
 
         // 每次训练时长
-        String durationText = translateSessionDuration(request.getSessionDuration());
+        String durationText = translateSessionDuration(request.sessionDuration());
         sb.append("- 每次训练可花费时长：").append(durationText).append("\n");
 
         // 每周训练天数
-        sb.append("- 每周可训练天数：").append(request.getTrainingDaysPerWeek()).append("天\n");
+        sb.append("- 每周可训练天数：").append(request.trainingDaysPerWeek()).append("天\n");
 
         // 训练风格
-        String styleText = translateTrainingStyle(request.getTrainingStyle());
+        String styleText = translateTrainingStyle(request.trainingStyle());
         sb.append("- 偏好训练风格：").append(styleText).append("\n");
 
         // 受伤注意事项
-        if (request.getInjuryNotes() != null && !request.getInjuryNotes().isBlank()) {
-            sb.append("- 特殊注意事项：").append(request.getInjuryNotes()).append("\n");
+        if (request.injuryNotes() != null && !request.injuryNotes().isBlank()) {
+            sb.append("- 特殊注意事项：").append(request.injuryNotes()).append("\n");
         }
 
         return sb.toString();

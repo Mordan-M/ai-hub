@@ -1,25 +1,21 @@
 package com.mordan.aihub.fitness.domain.ai;
 
-import lombok.Data;
-
 /**
  * AI 返回的健身动作结果
  *
  * @author fitness
  */
-@Data
-public class ExerciseResult {
-
+public record ExerciseResult(
     /** 动作中文名 */
-    private String nameZh;
+    String nameZh,
     /** 动作英文名 */
-    private String nameEn;
+    String nameEn,
     /** 组数 */
-    private int sets;
+    int sets,
     /** 次数或时长，如：10-12 或 30s */
-    private String reps;
+    String reps,
     /** 组间休息秒数 */
-    private int restSeconds;
+    int restSeconds,
     /** AI生成的动作要点提示 */
-    private String coachNotes;
-}
+    String coachNotes
+) {}

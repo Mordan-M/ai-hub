@@ -1,7 +1,5 @@
 package com.mordan.aihub.fitness.domain.ai;
 
-import lombok.Data;
-
 import java.util.List;
 
 /**
@@ -9,19 +7,17 @@ import java.util.List;
  *
  * @author fitness
  */
-@Data
-public class DayResult {
-
+public record DayResult(
     /** 星期几：1=周一 ... 7=周日 */
-    private int dayOfWeek;
+    int dayOfWeek,
     /** 是否休息日 */
-    private boolean isRestDay;
+    boolean isRestDay,
     /** 重点锻炼肌群 */
-    private String focusMuscleGroup;
+    String focusMuscleGroup,
     /** 热身说明 */
-    private String warmUpNotes;
+    String warmUpNotes,
     /** 拉伸放松说明 */
-    private String coolDownNotes;
+    String coolDownNotes,
     /** 动作列表 */
-    private List<ExerciseResult> exercises;
-}
+    List<ExerciseResult> exercises
+) {}

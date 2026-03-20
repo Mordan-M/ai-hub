@@ -1,6 +1,9 @@
 spring:
   application:
     name: ai-hub
+  threads:
+    virtual:
+      enabled: true
 
   # MyBatis-Plus Configuration
   datasource:

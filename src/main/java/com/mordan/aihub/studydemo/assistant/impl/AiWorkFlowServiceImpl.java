@@ -16,7 +16,6 @@ import java.util.Map;
 @Service
 public class AiWorkFlowServiceImpl implements AiWorkFlowService {
 
-
     // 注入已装配好的工作流，直接调用即可
     @Resource
     private UntypedAgent novelCreatorWorkflow;
@@ -28,7 +27,11 @@ public class AiWorkFlowServiceImpl implements AiWorkFlowService {
                 "audience", audience,
                 "style",    style
         );
-        return (String) novelCreatorWorkflow.invoke(input);
+        Object result = novelCreatorWorkflow.invoke(input);
+        if (result instanceof String stringResult) {
+            return stringResult;
+        }
+        throw new RuntimeException("工作流返回结果不是字符串类型");
     }
 
 }

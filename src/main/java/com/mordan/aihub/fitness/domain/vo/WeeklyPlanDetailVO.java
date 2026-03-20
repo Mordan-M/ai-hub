@@ -1,7 +1,5 @@
 package com.mordan.aihub.fitness.domain.vo;
 
-import lombok.Data;
-
 import java.time.LocalDate;
 import java.util.List;
 
@@ -10,19 +8,17 @@ import java.util.List;
  *
  * @author fitness
  */
-@Data
-public class WeeklyPlanDetailVO {
-
+public record WeeklyPlanDetailVO(
     /** 计划ID */
-    private Long planId;
+    Long planId,
     /** 计划标题 */
-    private String title;
+    String title,
     /** 整体计划说明 */
-    private String summary;
+    String summary,
     /** 计划开始日期（本周周一） */
-    private LocalDate weekStartDate;
+    LocalDate weekStartDate,
     /** 生成状态：generating=生成中/done=完成/failed=失败 */
-    private String status;
+    String status,
     /** 每日训练列表 */
-    private List<DailyTrainingVO> days;
-}
+    List<DailyTrainingVO> days
+) {}
