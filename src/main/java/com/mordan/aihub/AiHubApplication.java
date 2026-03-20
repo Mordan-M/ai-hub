@@ -9,10 +9,10 @@ import org.springframework.scheduling.annotation.EnableAsync;
 //})
 @SpringBootApplication
 @EnableAsync
-public class AiStudyApplication {
+public class AiHubApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AiStudyApplication.class, args);
+        SpringApplication.run(AiHubApplication.class, args);
     }
 
 }
