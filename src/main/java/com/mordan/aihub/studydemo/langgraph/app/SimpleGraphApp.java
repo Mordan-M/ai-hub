@@ -3,14 +3,14 @@ package com.mordan.aihub.studydemo.langgraph.app;
 import com.mordan.aihub.studydemo.langgraph.node.GreeterNode;
 import com.mordan.aihub.studydemo.langgraph.node.ResponderNode;
 import com.mordan.aihub.studydemo.langgraph.state.SimpleState;
-import dev.langchain4j.agentic.internal.AgentExecutor;
 import org.bsc.langgraph4j.GraphStateException;
 import org.bsc.langgraph4j.StateGraph;
-import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
-import static org.bsc.langgraph4j.StateGraph.START;
-import static org.bsc.langgraph4j.StateGraph.END;
 
 import java.util.Map;
+
+import static org.bsc.langgraph4j.StateGraph.END;
+import static org.bsc.langgraph4j.StateGraph.START;
+import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 
 /**
  * @className: SimpleGraphApp

@@ -114,7 +114,7 @@ public class StatefulChatWorkFlow {
 
         // ── 节点 1：callAgent —— 调用 LLM ──
         var callAgent = node_async((ChatState state) -> {
-            System.out.println("\n[callAgent] 当前消息数：" + state.messages().size());
+            log.info("[callAgent] 当前消息数：{}", state.messages().size());
 
             var request = ChatRequest.builder()
                     .messages(state.messages())
@@ -124,10 +124,11 @@ public class StatefulChatWorkFlow {
             var response = chatModel.chat(request);
             var aiMsg = response.aiMessage();
 
-            System.out.println("[callAgent] LLM 回复：" +
-                    (aiMsg.hasToolExecutionRequests()
-                            ? "请求调用工具 -> " + aiMsg.toolExecutionRequests().get(0).name()
-                            : aiMsg.text()));
+            if (aiMsg.hasToolExecutionRequests()) {
+                log.info("[callAgent] LLM 回复：请求调用工具 -> {}", aiMsg.toolExecutionRequests().get(0).name());
+            } else {
+                log.info("[callAgent] LLM 回复：{}", aiMsg.text());
+            }
 
             // 返回状态更新：新消息会通过 AppenderChannel 追加到 messages 列表末尾
             return Map.of("messages", aiMsg);
@@ -139,14 +140,13 @@ public class StatefulChatWorkFlow {
             var aiMsg = (AiMessage) state.lastMessage().orElse(null);
             var request = aiMsg.toolExecutionRequests().get(0);
 
-            System.out.println("[invokeTool] 执行工具：" + request.name()
-                    + "，参数：" + request.arguments());
+            log.info("[invokeTool] 执行工具：{}，参数：{}", request.name(), request.arguments());
 
             // 用 DefaultToolExecutor 反射调用 WeatherTool 的方法
             var executor = new DefaultToolExecutor(weatherTool, request);
             var result = executor.execute(request, null);
 
-            System.out.println("[invokeTool] 工具结果：" + result);
+            log.info("[invokeTool] 工具结果：{}", result);
 
             // 返回工具执行结果消息，追加到 messages 列表
             return Map.of("messages", AiMessage.from(result));
@@ -159,7 +159,7 @@ public class StatefulChatWorkFlow {
         // edge_async() 将同步 EdgeAction 包装为异步版本。
         // ─────────────────────────────────────────────────────
         EdgeAction<ChatState> routeAfterAgent = state -> {
-            var last = state.lastMessage().orElse( null);
+            var last = state.lastMessage().orElse(null);
             if (last instanceof AiMessage aiMsg && aiMsg.hasToolExecutionRequests()) {
                 return "call_tool";   // LLM 请求工具调用 → 跳转到 invokeTool 节点
             }
@@ -223,9 +223,7 @@ public class StatefulChatWorkFlow {
         // ═════════════════════════════════════════════════════
         // 场景一：有状态多轮对话（同一个 threadId）
         // ═════════════════════════════════════════════════════
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  场景一：有状态多轮对话（threadId = user-001）");
-        System.out.println("=".repeat(60));
+        log.info("\n{}\n  场景一：有状态多轮对话（threadId = user-001）\n{}", "=".repeat(60), "=".repeat(60));
 
         // ─────────────────────────────────────────────────────
         // 【第 4 章 §4.2】RunnableConfig —— 通过 threadId 隔离会话
@@ -238,28 +236,26 @@ public class StatefulChatWorkFlow {
                 .build();
 
         // ── 第 1 轮：自我介绍 ──
-        System.out.println("\n>>> 第 1 轮对话：自我介绍");
+        log.info(">>> 第 1 轮对话：自我介绍");
         runTurn(graph, configUser1, "你好！我叫小明，很高兴认识你。");
 
         // ── 第 2 轮：测试记忆 ──
-        System.out.println("\n>>> 第 2 轮对话：测试记忆");
+        log.info(">>> 第 2 轮对话：测试记忆");
         runTurn(graph, configUser1, "你还记得我叫什么名字吗？");
 
         // ── 第 3 轮：工具调用（触发天气查询） ──
-        System.out.println("\n>>> 第 3 轮对话：天气查询（触发工具调用）");
+        log.info(">>> 第 3 轮对话：天气查询（触发工具调用）");
         runTurn(graph, configUser1, "帮我查一下北京今天的天气");
 
         // ─────────────────────────────────────────────────────
         // 【第 4 章 §4.3】getState() —— 查看当前会话状态
         // ─────────────────────────────────────────────────────
-        System.out.println("\n" + "-".repeat(60));
-        System.out.println("  查看 user-001 的当前状态（getState）");
-        System.out.println("-".repeat(60));
+        log.info("\n{}\n  查看 user-001 的当前状态（getState）\n{}", "-".repeat(60), "-".repeat(60));
 
         var currentState = graph.getState(configUser1);
         var messages = currentState.state().messages();
-        System.out.println("消息总数：" + messages.size());
-        System.out.println("最后一条消息：" + messages.get(messages.size() - 1));
+        log.info("消息总数：{}", messages.size());
+        log.info("最后一条消息：{}", messages.get(messages.size() - 1));
 
         // ─────────────────────────────────────────────────────
         // 【第 4 章 §4.3】getStateHistory() —— 查看历史快照
@@ -267,20 +263,18 @@ public class StatefulChatWorkFlow {
         // 每次节点执行后都会产生一个 Checkpoint 快照。
         // 这是"时间旅行"功能的基础。
         // ─────────────────────────────────────────────────────
-        System.out.println("\n" + "-".repeat(60));
-        System.out.println("  查看 user-001 的历史快照（getStateHistory）");
-        System.out.println("-".repeat(60));
+        log.info("\n{}\n  查看 user-001 的历史快照（getStateHistory）\n{}", "-".repeat(60), "-".repeat(60));
 
         var history = graph.getStateHistory(configUser1);
         int snapshotCount = 0;
         for (var snapshot : history) {
             snapshotCount++;
-            System.out.printf("  快照 #%d | 消息数：%d | 下一节点：%s%n",
+            log.info("  快照 #{} | 消息数：{} | 下一节点：{}",
                     snapshotCount,
                     snapshot.state().messages().size(),
                     snapshot.config().nextNode().orElse("（结束）"));
             if (snapshotCount >= 5) {
-                System.out.println("  ... （仅展示前 5 条）");
+                log.info("  ... （仅展示前 5 条）");
                 break;
             }
         }
@@ -288,15 +282,13 @@ public class StatefulChatWorkFlow {
         // ═════════════════════════════════════════════════════
         // 场景二：新会话（不同 threadId，记忆完全隔离）
         // ═════════════════════════════════════════════════════
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  场景二：新会话（threadId = user-002）");
-        System.out.println("=".repeat(60));
+        log.info("\n{}\n  场景二：新会话（threadId = user-002）\n{}", "=".repeat(60), "=".repeat(60));
 
         var configUser2 = RunnableConfig.builder()
                 .threadId("user-002")    // 全新会话，与 user-001 完全隔离
                 .build();
 
-        System.out.println("\n>>> 第 1 轮：测试隔离性（user-002 不知道小明的存在）");
+        log.info(">>> 第 1 轮：测试隔离性（user-002 不知道小明的存在）");
         runTurn(graph, configUser2, "你知道我叫什么名字吗？");
 
         // ═════════════════════════════════════════════════════
@@ -305,9 +297,7 @@ public class StatefulChatWorkFlow {
         // 可以在任意时刻手动修改 State，
         // 就像某个节点执行了这次更新一样。
         // ═════════════════════════════════════════════════════
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  场景三：updateState() 手动注入系统提示");
-        System.out.println("=".repeat(60));
+        log.info("\n{}\n  场景三：updateState() 手动注入系统提示\n{}", "=".repeat(60), "=".repeat(60));
 
         var configUser3 = RunnableConfig.builder()
                 .threadId("user-003")
@@ -315,7 +305,7 @@ public class StatefulChatWorkFlow {
 
         // ✅ 修复：先用一条真实消息跑一轮，让框架创建第一个 Checkpoint
         // 这一轮就当做系统初始化，把角色设定注入进去
-        System.out.println("\n>>> 初始化会话（注入系统上下文）");
+        log.info(">>> 初始化会话（注入系统上下文）");
         runTurn(graph, configUser3,
                 "【系统上下文】你是一个专业的天气助手，用户名是「小红」，请记住这一点。");
 
@@ -329,12 +319,10 @@ public class StatefulChatWorkFlow {
                 "callAgent"  // 假装这是 callAgent 节点发出的更新
         );
 
-        System.out.println("\n>>> 对话：验证手动注入的上下文");
+        log.info(">>> 对话：验证手动注入的上下文");
         runTurn(graph, configUser3, "你好，请问你还记得我的名字吗？");
 
-        System.out.println("\n" + "=".repeat(60));
-        System.out.println("  Demo 运行完毕！");
-        System.out.println("=".repeat(60));
+        log.info("\n{}\n  Demo 运行完毕！\n{}", "=".repeat(60), "=".repeat(60));
     }
 
     /**
@@ -344,16 +332,16 @@ public class StatefulChatWorkFlow {
      *   - 每个节点执行完毕后立即产生一个 NodeOutput
      *   - 可实时观察状态流转，无需等待全部执行完毕
      *
-     * @param graph         编译后的图实例
-     * @param config        运行时配置（含 threadId）
-     * @param userMessage   用户输入
+     * @param graph       编译后的图实例
+     * @param config      运行时配置（含 threadId）
+     * @param userMessage 用户输入
      */
-    private static void runTurn(
+    private void runTurn(
             org.bsc.langgraph4j.CompiledGraph<ChatState> graph,
             RunnableConfig config,
             String userMessage) throws Exception {
 
-        System.out.println("用户：" + userMessage);
+        log.info("用户：{}", userMessage);
 
         // 将用户消息封装为 UserMessage 加入 State
         // AppenderChannel 会把它追加到历史消息列表末尾
@@ -372,14 +360,14 @@ public class StatefulChatWorkFlow {
             if ("callAgent".equals(nodeOutput.node())) {
                 var lastMsg = nodeOutput.state().lastMessage().orElse(null);
                 if (lastMsg instanceof AiMessage aiMsg && !aiMsg.hasToolExecutionRequests()) {
-                    // 只打印 LLM 的最终文字回复（排除工具调用请求）
+                    // 只记录 LLM 的最终文字回复（排除工具调用请求）
                     finalReply = aiMsg.text();
                 }
             }
         }
 
         if (finalReply != null) {
-            System.out.println("Agent：" + finalReply);
+            log.info("Agent：{}", finalReply);
         }
     }
 }
