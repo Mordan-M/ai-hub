@@ -84,3 +84,4 @@ app:
   generation:
     max-concurrent-tasks-per-user: 2
     max-retry: 3
+

@@ -58,9 +58,14 @@ public class GenerationWorkflowContext implements Serializable {
     private IntentCheckResult intentCheckResult;
 
     /**
-     * 解析后的结构化意图 JSON（保持字符串，结构灵活）
+     * 解析后的结构化意图
      */
-    private String parsedIntent;
+    private ParsedIntent parsedIntent;
+
+    /**
+     * 原始解析得到的 JSON 字符串（保留用于日志和调试）
+     */
+    private String parsedIntentJson;
 
     /**
      * 生成的代码结果，包含多个文件
@@ -96,4 +101,9 @@ public class GenerationWorkflowContext implements Serializable {
      * LLM校验建议
      */
     private String llmSuggestions;
+
+    /**
+     * 持久化构建输出的路径（开启 persist-build-output 时才有值）
+     */
+    private String persistedBuildPath;
 }

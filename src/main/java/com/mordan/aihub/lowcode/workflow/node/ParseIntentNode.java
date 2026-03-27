@@ -1,7 +1,9 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.ai.ParseIntentAiService;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
+import com.mordan.aihub.lowcode.workflow.state.ParsedIntent;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +14,8 @@ import java.util.Map;
 
 /**
  * 意图解析节点
- * 将用户自然语言需求解析为结构化JSON
+ * 将用户自然语言需求解析为结构化 POJO ParsedIntent。
+ * 解析失败时将原始用户输入作为 fallback，并标记失败原因。
  */
 @Slf4j
 @Component
@@ -21,31 +24,64 @@ public class ParseIntentNode implements NodeAction<WorkflowState> {
     @Resource
     private ParseIntentAiService parseIntentAiService;
 
+    @Resource
+    private ObjectMapper objectMapper;
+
     @Override
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
-        StringBuilder userPrompt = new StringBuilder();
-        userPrompt.append("用户需求：\n").append(ctx.getUserPrompt()).append("\n\n");
+        String userPrompt = buildUserPrompt(ctx);
 
-        if (ctx.getApiDocText() != null && !ctx.getApiDocText().isEmpty()) {
-            userPrompt.append("API文档：\n").append(ctx.getApiDocText()).append("\n\n");
-        }
-
-        if (ctx.getParentCodeSnapshot() != null && !ctx.getParentCodeSnapshot().isEmpty()) {
-            userPrompt.append("此为迭代修改，请基于已有代码进行改动。\n");
-        }
-
-        String parsedIntent;
         try {
-            parsedIntent = parseIntentAiService.parseIntent(userPrompt.toString()).trim();
-            log.info("Intent parsing completed");
+            String jsonResult = parseIntentAiService.parseIntent(userPrompt).trim();
+            // 解析 JSON 为 POJO
+            ParsedIntent parsedIntent = objectMapper.readValue(jsonResult, ParsedIntent.class);
+            ctx.setParsedIntent(parsedIntent);
+            ctx.setParsedIntentJson(jsonResult);
+            log.info("Intent parsing completed, pages: {}, hasApi: {}",
+                    parsedIntent.getPages() != null ? parsedIntent.getPages().size() : 0,
+                    parsedIntent.getHasApiIntegration());
         } catch (Exception e) {
             log.error("Failed to parse intent", e);
-            parsedIntent = ctx.getUserPrompt();
+            // 降级：保存原始 JSON 字符串到 parsedIntentJson，POJO 为 null
+            ctx.setParsedIntentJson(ctx.getUserPrompt());
             ctx.setSuccess(false);
             ctx.setFailureReason("意图解析失败：" + e.getMessage());
         }
-        ctx.setParsedIntent(parsedIntent);
+
         return WorkflowState.saveContext(ctx);
+    }
+
+    /**
+     * 组装结构化 userPrompt，使用 XML 标签包裹各段内容，
+     * 帮助模型准确定位不同语义区块。
+     */
+    private String buildUserPrompt(GenerationWorkflowContext ctx) {
+        StringBuilder sb = new StringBuilder();
+
+        // 用户需求（必填）
+        appendSection(sb, "用户需求", ctx.getUserPrompt());
+
+        // API 文档（可选）
+        if (hasText(ctx.getApiDocText())) {
+            appendSection(sb, "API文档", ctx.getApiDocText());
+        }
+
+        // 迭代标记（可选）
+        if (hasText(ctx.getParentCodeSnapshot())) {
+            appendSection(sb, "迭代说明", "此次为迭代修改，用户是在已有版本基础上调整，请将 isIteration 设为 true。");
+        }
+
+        return sb.toString();
+    }
+
+    private void appendSection(StringBuilder sb, String tag, String content) {
+        sb.append("<").append(tag).append(">\n")
+          .append(content == null ? "" : content.trim())
+          .append("\n</").append(tag).append(">\n\n");
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

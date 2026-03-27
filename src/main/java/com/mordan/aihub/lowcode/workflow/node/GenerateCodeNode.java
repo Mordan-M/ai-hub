@@ -40,7 +40,15 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         GenerationWorkflowContext ctx = state.context();
 
         // 1. 构建结构化 userPrompt
-        String userPrompt = buildUserPrompt(ctx);
+        String userPrompt;
+        try {
+            userPrompt = buildUserPrompt(ctx);
+        } catch (Exception e) {
+            log.error("Failed to build user prompt", e);
+            ctx.setSuccess(false);
+            ctx.setFailureReason("构建提示词失败：" + e.getMessage());
+            return WorkflowState.saveContext(ctx);
+        }
         log.debug("Generated userPrompt (length={}):\n{}", userPrompt.length(), userPrompt);
 
         // 2. 调用 AI 服务生成代码
@@ -50,9 +58,9 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         ctx.setGeneratedCode(generatedCode);
 
         // 只有本次生成成功时才重置重试计数；失败时保留计数供重试节点判断
-        if (ctx.getSuccess()) {
-            ctx.setRetryCount(0);
-        }
+//        if (BooleanUtil.isTrue(ctx.getSuccess())) {
+//            ctx.setRetryCount(0);
+//        }
 
         return WorkflowState.saveContext(ctx);
     }
@@ -65,11 +73,14 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
      * 将上下文各字段拼装为结构化 userPrompt。
      * 使用 XML 标签包裹每个段落，帮助模型准确定位各段内容。
      */
-    private String buildUserPrompt(GenerationWorkflowContext ctx) {
+    private String buildUserPrompt(GenerationWorkflowContext ctx) throws com.fasterxml.jackson.core.JsonProcessingException {
         StringBuilder sb = new StringBuilder();
 
         // ── 需求结构（必填）──
-        appendSection(sb, "需求结构", ctx.getParsedIntent());
+        String parsedIntentJson = ctx.getParsedIntent() != null
+                ? objectMapper.writeValueAsString(ctx.getParsedIntent())
+                : ctx.getParsedIntentJson();
+        appendSection(sb, "需求结构", parsedIntentJson);
 
         // ── API 文档（可选）──
         if (hasText(ctx.getApiDocText())) {
@@ -77,11 +88,6 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         } else {
             appendSection(sb, "API文档", "无，所有数据使用前端 mock，禁止发起任何网络请求");
         }
-
-        // ── 图片需求关键词（可选）──
-//        if (hasText(ctx.get())) {
-//            appendSection(sb, "图片需求关键词", ctx.getImageNeeds());
-//        }
 
         // ── 已有代码快照 + 迭代说明（可选）──
         if (hasText(ctx.getParentCodeSnapshot())) {

@@ -1,5 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
+import com.mordan.aihub.lowcode.config.GenerationProperties;
+import com.mordan.aihub.lowcode.workflow.build.VueProjectBuilder;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
@@ -7,23 +9,27 @@ import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.NodeAction;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.Resource;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 构建编译节点
- * 使用 esbuild 编译 Vue 3 JS/TS 为浏览器可执行的 JavaScript
+ * 使用 VueProjectBuilder 构建完整 Vue 项目
  */
 @Slf4j
 @Component
 public class BuildNode implements NodeAction<WorkflowState> {
 
-    private static final String ESBUILD_CMD = "npx";
-    private static final String ESBUILD_ARGS = "esbuild";
+    @Resource
+    private VueProjectBuilder vueProjectBuilder;
+
+    @Resource
+    private GenerationProperties generationProperties;
 
     @Override
     public Map<String, Object> apply(WorkflowState state) {
@@ -35,55 +41,36 @@ public class BuildNode implements NodeAction<WorkflowState> {
             return WorkflowState.saveContext(ctx);
         }
 
+        Path buildDir = null;
         try {
-            // 1. 创建临时目录存放源码
-            Path tempDir = Files.createTempDirectory("lowcode-build-");
-            log.info("Build starting, temp directory: {}", tempDir);
+            // 1. 创建构建目录
+            buildDir = createBuildDirectory();
+            log.info("Build starting, build directory: {}", buildDir);
 
             // 2. 写入所有源码文件
-            writeSourceFiles(tempDir, generatedCode);
+            writeSourceFiles(buildDir, generatedCode);
 
-            // 3. 查找入口文件 index.html 提取 entry point
-            String entryPoint = findEntryPoint(tempDir);
-            if (entryPoint == null) {
-                log.warn("No entry point found (index.html with /src/main.js or /src/main.ts)");
-                Files.walk(tempDir).forEach(path -> {
-                    try {
-                        Files.delete(path);
-                    } catch (IOException e) {
-                        // ignore
-                    }
-                });
-                return WorkflowState.saveContext(ctx);
-            }
-
-            // 4. 执行 esbuild 编译
-            boolean buildSuccess = runEsbuild(tempDir, entryPoint);
+            // 3. 使用 VueProjectBuilder 构建项目
+            boolean buildSuccess = vueProjectBuilder.buildProject(buildDir.toString());
             if (!buildSuccess) {
-                log.error("esbuild compilation failed");
+                log.error("Vue project build failed");
                 ctx.setSuccess(false);
-                ctx.setFailureReason("前端代码编译失败，请检查生成代码");
-                Files.walk(tempDir).forEach(path -> {
-                    try {
-                        Files.delete(path);
-                    } catch (IOException e) {
-                        // ignore
-                    }
-                });
+                ctx.setFailureReason("前端项目构建失败，请检查生成代码");
+                cleanupBuildDirectory(buildDir);
                 return WorkflowState.saveContext(ctx);
             }
 
-            // 5. 读取编译输出，更新到 GeneratedCode
-            updateGeneratedCode(generatedCode, tempDir);
+            // 4. 读取编译输出，更新到 GeneratedCode
+            updateGeneratedCode(generatedCode, buildDir);
 
-            // 6. 清理临时目录
-            Files.walk(tempDir).forEach(path -> {
-                try {
-                    Files.delete(path);
-                } catch (IOException e) {
-                    // ignore
-                }
-            });
+            // 5. 根据配置决定是否清理构建目录
+            if (generationProperties.isPersistBuildOutput()) {
+                log.info("persist-build-output is enabled, build directory is preserved at: {}", buildDir);
+                // 将持久化路径保存到上下文供后续使用
+                ctx.setPersistedBuildPath(buildDir.toString());
+            } else {
+                cleanupBuildDirectory(buildDir);
+            }
 
             log.info("Frontend build completed successfully");
 
@@ -91,85 +78,38 @@ public class BuildNode implements NodeAction<WorkflowState> {
             log.error("Build failed with exception", e);
             ctx.setSuccess(false);
             ctx.setFailureReason("代码编译异常：" + e.getMessage());
+            if (buildDir != null && !generationProperties.isPersistBuildOutput()) {
+                cleanupBuildDirectory(buildDir);
+            }
         }
 
         return WorkflowState.saveContext(ctx);
     }
 
-    private void writeSourceFiles(Path tempDir, GeneratedCode generatedCode) throws IOException {
+    /**
+     * 创建构建目录
+     * 如果开启持久化，则在指定基础路径下创建，否则使用系统临时目录
+     */
+    private Path createBuildDirectory() throws IOException {
+        String dirName = "lowcode-build-" + UUID.randomUUID();
+        if (generationProperties.isPersistBuildOutput() && generationProperties.getPersistOutputBasePath() != null) {
+            Path basePath = Path.of(generationProperties.getPersistOutputBasePath());
+            Files.createDirectories(basePath);
+            return basePath.resolve(dirName);
+        }
+        return Files.createTempDirectory("lowcode-build-");
+    }
+
+    private void writeSourceFiles(Path buildDir, GeneratedCode generatedCode) throws IOException {
         for (var file : generatedCode.getFiles()) {
-            Path filePath = tempDir.resolve(file.getPath());
+            Path filePath = buildDir.resolve(file.getPath());
             Files.createDirectories(filePath.getParent());
             Files.writeString(filePath, file.getContent(), StandardCharsets.UTF_8);
         }
     }
 
-    private String findEntryPoint(Path tempDir) {
-        try {
-            Path indexHtml = tempDir.resolve("index.html");
-            if (!Files.exists(indexHtml)) {
-                return null;
-            }
-            String content = Files.readString(indexHtml);
-            // 查找 src/main.js 或 src/main.ts
-            if (content.contains("/src/main.js")) {
-                return "src/main.js";
-            }
-            if (content.contains("/src/main.ts")) {
-                return "src/main.ts";
-            }
-            return null;
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    private boolean runEsbuild(Path tempDir, String entryPoint) {
-        String outputFile = "dist/main.js";
-        Path outputPath = tempDir.resolve(outputFile);
-        try {
-            Files.createDirectories(outputPath.getParent());
-        } catch (IOException e) {
-            log.error("Failed to create output directory", e);
-            return false;
-        }
-
-        // esbuild 命令
-        ProcessBuilder pb = new ProcessBuilder(
-                ESBUILD_CMD,
-                ESBUILD_ARGS,
-                entryPoint,
-                "--bundle",
-                "--outfile=" + outputFile,
-                "--format=iife",
-                "--sourcemap"
-        );
-        pb.directory(tempDir.toFile());
-        pb.redirectErrorStream(true);
-
-        try {
-            Process process = pb.start();
-            // 读取输出
-            InputStream inputStream = process.getInputStream();
-            String output = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-
-            if (exitCode != 0) {
-                log.error("esbuild exited with code {}, output:\n{}", exitCode, output);
-                return false;
-            }
-
-            log.info("esbuild output:\n{}", output);
-            return Files.exists(outputPath);
-
-        } catch (IOException | InterruptedException e) {
-            log.error("Failed to run esbuild", e);
-            return false;
-        }
-    }
-
-    private void updateGeneratedCode(GeneratedCode generatedCode, Path tempDir) throws IOException {
-        Path distDir = tempDir.resolve("dist");
+    private void updateGeneratedCode(GeneratedCode generatedCode, Path buildDir) throws IOException {
+        Path distDir = buildDir.resolve("dist");
         if (Files.exists(distDir)) {
             Files.walk(distDir)
                     .filter(Files::isRegularFile)
@@ -178,36 +118,45 @@ public class BuildNode implements NodeAction<WorkflowState> {
                             String relativePath = distDir.relativize(file).toString();
                             String content = Files.readString(file, StandardCharsets.UTF_8);
                             // 查找并更新原有文件
+                            boolean found = false;
                             for (var existing : generatedCode.getFiles()) {
                                 if (existing.getPath().endsWith(relativePath)) {
                                     existing.setContent(content);
-                                    return;
+                                    found = true;
+                                    break;
                                 }
                             }
-                            // 如果是新文件（如 source map），添加进去
-                            generatedCode.getFiles().add(new com.mordan.aihub.lowcode.workflow.state.CodeFile(
-                                    "dist/" + relativePath,
-                                    content
-                            ));
+                            // 如果是新文件，添加进去
+                            if (!found) {
+                                generatedCode.getFiles().add(new com.mordan.aihub.lowcode.workflow.state.CodeFile(
+                                        "dist/" + relativePath,
+                                        content
+                                ));
+                            }
                         } catch (IOException e) {
                             log.warn("Failed to read output file: {}", file, e);
                         }
                     });
         }
-        // 更新 index.html 中入口路径指向编译后的 dist/main.js
-        updateIndexHtmlEntryPoint(tempDir, generatedCode);
     }
 
-    private void updateIndexHtmlEntryPoint(Path tempDir, GeneratedCode generatedCode) {
-        for (var file : generatedCode.getFiles()) {
-            if ("index.html".equals(file.getPath())) {
-                String content = file.getContent();
-                // 将 src/main.js / src/main.ts 替换为 dist/main.js
-                content = content.replace("/src/main.js", "/dist/main.js");
-                content = content.replace("/src/main.ts", "/dist/main.js");
-                file.setContent(content);
-                break;
-            }
+    /**
+     * 清理构建目录，只有在未开启持久化时才清理
+     */
+    private void cleanupBuildDirectory(Path buildDir) {
+        if (generationProperties.isPersistBuildOutput()) {
+            return;
+        }
+        try {
+            Files.walk(buildDir).forEach(path -> {
+                try {
+                    Files.delete(path);
+                } catch (IOException e) {
+                    // ignore
+                }
+            });
+        } catch (IOException e) {
+            // ignore
         }
     }
 }

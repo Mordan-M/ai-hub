@@ -154,6 +154,7 @@ public class CodeGenerationWorkflow {
         if (errors == null || errors.isEmpty()) {
             return "save";
         }
+
         Integer retryCount = state.context().getRetryCount();
         int maxRetry = generationProperties.getMaxRetry();
         if (retryCount != null && retryCount >= maxRetry) {

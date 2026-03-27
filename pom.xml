@@ -27,6 +27,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <spring-boot.version>3.5.11</spring-boot.version>
         <langgraph4j.version>1.8.10</langgraph4j.version>
+        <hutool-all.version>5.8.20</hutool-all.version>
     </properties>
 
     <dependencies>
@@ -180,6 +181,12 @@
             <groupId>org.bsc.langgraph4j</groupId>
             <artifactId>langgraph4j-studio-springboot</artifactId>
             <version>${langgraph4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>${hutool-all.version}</version>
         </dependency>
 
     </dependencies>
