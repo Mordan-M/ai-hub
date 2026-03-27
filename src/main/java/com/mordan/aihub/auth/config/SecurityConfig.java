@@ -64,7 +64,9 @@ public class SecurityConfig {
                                 "/api/v1/user/register",
                                 "/api/v1/user/login",
                                 "/actuator/health",
-                                "/demo/*"
+                                "/demo/*",
+                                "/preview/**",
+                                "/site/**"
                         ).permitAll()
                         // 其余所有路径需要认证
                         .anyRequest().authenticated()

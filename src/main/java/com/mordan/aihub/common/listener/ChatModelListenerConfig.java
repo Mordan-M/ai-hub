@@ -1,4 +1,4 @@
-package com.mordan.aihub.studydemo.listener;
+package com.mordan.aihub.common.listener;
 
 import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
 import dev.langchain4j.model.chat.listener.ChatModelListener;

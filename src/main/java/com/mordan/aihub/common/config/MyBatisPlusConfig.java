@@ -1,4 +1,4 @@
-package com.mordan.aihub.fitness.config;
+package com.mordan.aihub.common.config;
 
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
  * @author fitness
  */
 @Configuration
-@MapperScan("com.mordan.aihub.fitness.mapper")
+@MapperScan({"com.mordan.aihub.fitness.mapper", "com.mordan.aihub.lowcode.mapper"})
 public class MyBatisPlusConfig {
 
     /**
