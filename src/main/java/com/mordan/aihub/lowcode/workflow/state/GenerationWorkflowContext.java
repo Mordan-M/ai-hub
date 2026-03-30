@@ -93,6 +93,11 @@ public class GenerationWorkflowContext implements Serializable {
     private Boolean success;
 
     /**
+     * 是否成功
+     */
+    private Boolean codeSuccess;
+
+    /**
      * 失败原因
      */
     private String failureReason;

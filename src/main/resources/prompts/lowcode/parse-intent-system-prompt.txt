@@ -20,11 +20,11 @@
     {"location": "位置描述", "keyword": "英文搜索关键词", "width": 800, "height": 400}
   ],
   "isIteration": true/false,
-  "iterationFocus": "本次迭代修改的核心内容（isIteration=true 时填写）"
+  "iterationFocus": "本次迭代修改的核心内容（isIteration=true 时填写，其余时为空字符串）"
 }
 
 规则：
-- 若用户提供了 API 文档，提取其中的接口信息填入 apiEndpoints
+- 若用户提供了 API 文档，提取其中接口信息填入 apiEndpoints
 - 若用户在已有版本基础上修改，isIteration 设为 true，并填写 iterationFocus
 - imageNeeds 中 keyword 使用英文，便于 Unsplash 搜索
 - 只输出 JSON，不要有任何其他内容

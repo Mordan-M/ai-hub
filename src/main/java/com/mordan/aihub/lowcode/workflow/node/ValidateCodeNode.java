@@ -11,24 +11,39 @@ import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.NodeAction;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 代码校验节点
- * 分两级校验：
- *   一级（规则校验）：必要文件存在性、禁止词、图片路径 —— 有错误直接进修复，跳过 LLM
- *   二级（LLM 校验）：一级通过后再做语义/最佳实践检查
  *
- * 注意：技术栈已切换为 Vue 3，校验规则同步更新（src/main.js、src/App.vue、.vue 文件检查）。
+ * 分两级校验，职责严格分离：
+ *
+ * 【一级：Java 规则校验】— 守门员，结果触发修复流程
+ *   检查"有没有"，不检查"好不好"。100% 确定性，零 token 消耗。
+ *   - 必要文件存在性
+ *   - 禁止服务端模块引用
+ *   - 禁止本地图片路径 / 占位图服务
+ *   - Vue 文件必须使用 <script setup>
+ *   - vite.config.js 必须包含 @vitejs/plugin-vue
+ *   - src/main.js 必须有 mount() 调用
+ *   - index.html 必须有 id="app" 挂载点
+ *   - Vue Router 使用时必须在 main.js 注册
+ *   - package.json 禁止 "latest" 版本
+ *   - tailwind.config.js content 必须覆盖 .vue 文件
+ *   - 有 API 文档时必须有接口调用代码
+ *
+ * 【二级：LLM 语义校验】— 质检员，结果注入下次生成，不触发修复
+ *   只传核心业务文件（src/App.vue、src/views/**、src/components/**），
+ *   降低 token 消耗。结果存入 ctx.llmSuggestions，
+ *   由 GenerateCodeNode 在下一轮生成时作为质检反馈注入 prompt。
  */
 @Slf4j
 @Component
 public class ValidateCodeNode implements NodeAction<WorkflowState> {
 
-    // 必须存在的文件列表（与 generate-code-system-prompt 保持一致）
+    // ── 常量 ──────────────────────────────────────────────────────
+
     private static final Set<String> REQUIRED_FILES = Set.of(
             "package.json",
             "index.html",
@@ -39,16 +54,14 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
             "src/App.vue"
     );
 
-    // 禁止出现的 Node.js 服务端模块
     private static final List<String> FORBIDDEN_MODULES = List.of(
-            "require('fs')", "require(\"fs\")",
-            "require('path')", "require(\"path\")",
-            "require('http')", "require(\"http\")",
+            "require('fs')",      "require(\"fs\")",
+            "require('path')",    "require(\"path\")",
+            "require('http')",    "require(\"http\")",
             "require('express')", "require(\"express\")",
             "process.env"
     );
 
-    // 禁止的图片来源
     private static final List<String> FORBIDDEN_IMG_PATTERNS = List.of(
             "src=\"./assets", "src='./assets",
             "src=\"/assets",  "src='/assets",
@@ -56,121 +69,207 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
             "placeholder.com", "via.placeholder"
     );
 
+    // LLM 校验只传这些路径前缀的文件，降低 token 消耗
+    private static final List<String> LLM_VALIDATE_PREFIXES = List.of(
+            "src/App.vue",
+            "src/views/",
+            "src/components/"
+    );
+
     @Resource
     private ValidateCodeAiService validateCodeAiService;
     @Resource
     private ObjectMapper objectMapper;
 
+    // ─────────────────────────────────────────────────────────────
+    // 主入口
+    // ─────────────────────────────────────────────────────────────
+
     @Override
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
-        List<String> errors = new ArrayList<>();
-        List<String> suggestions = new ArrayList<>();
         GeneratedCode generatedCode = ctx.getGeneratedCode();
 
-        // ── 一级：规则强制性校验 ──────────────────────────────────────
+        List<String> errors = new ArrayList<>();
+        List<String> suggestions = new ArrayList<>();
+
+        // 一级：规则强制校验（有错误直接进修复，跳过 LLM）
         ruleValidate(generatedCode, ctx, errors);
 
-        // ── 二级：LLM 增强校验（仅一级无错时执行，节省 token）──────────
+        // 二级：LLM 语义校验（仅一级无错时执行，只传业务文件）
         if (errors.isEmpty()) {
             llmValidate(generatedCode, suggestions);
         }
 
         ctx.setValidationErrors(errors);
+        // LLM suggestions 保留在上下文，由 GenerateCodeNode 下一轮注入 prompt
         ctx.setLlmSuggestions(String.join("\n", suggestions));
 
-        log.info("Validation completed: {} errors, {} suggestions", errors.size(), suggestions.size());
+        log.info("Validation completed: {} rule errors, {} llm suggestions", errors.size(), suggestions.size());
         return WorkflowState.saveContext(ctx);
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 一级：规则校验
+    // 一级：Java 规则校验
     // ─────────────────────────────────────────────────────────────
 
-    private void ruleValidate(GeneratedCode generatedCode, GenerationWorkflowContext ctx, List<String> errors) {
+    private void ruleValidate(GeneratedCode generatedCode,
+                               GenerationWorkflowContext ctx,
+                               List<String> errors) {
         if (generatedCode == null || generatedCode.getFiles() == null) {
             errors.add("格式错误：缺少 files 文件列表");
             return;
         }
 
         List<CodeFile> files = generatedCode.getFiles();
+        Map<String, String> fileMap = buildFileMap(files);
 
-        // 1. 必要文件存在性检查
-        Set<String> presentPaths = new java.util.HashSet<>();
+        checkRequiredFiles(fileMap, errors);
+        checkFileContents(files, errors);
+        checkVueRouterRegistration(fileMap, errors);
+        checkApiIntegration(ctx, files, errors);
+    }
+
+    /** 构建 path → content 的 Map，便于快速查找 */
+    private Map<String, String> buildFileMap(List<CodeFile> files) {
+        Map<String, String> map = new HashMap<>();
         for (CodeFile f : files) {
-            if (f.getPath() != null) presentPaths.add(f.getPath());
+            if (f.getPath() != null && f.getContent() != null) {
+                map.put(f.getPath(), f.getContent());
+            }
         }
+        return map;
+    }
+
+    /** 检查必要文件是否全部存在 */
+    private void checkRequiredFiles(Map<String, String> fileMap, List<String> errors) {
         for (String required : REQUIRED_FILES) {
-            if (!presentPaths.contains(required)) {
+            if (!fileMap.containsKey(required)) {
                 errors.add("缺少必要文件：" + required);
-            }
-        }
-
-        // 2. 逐文件内容检查
-        for (CodeFile file : files) {
-            String path = file.getPath();
-            String content = file.getContent();
-            if (path == null || content == null) continue;
-
-            // 2a. 禁止服务端模块
-            for (String forbidden : FORBIDDEN_MODULES) {
-                if (content.contains(forbidden)) {
-                    errors.add(path + "：包含禁止的服务端模块引用 " + forbidden);
-                }
-            }
-
-            // 2b. 禁止本地图片路径 / 占位图服务
-            for (String pattern : FORBIDDEN_IMG_PATTERNS) {
-                if (content.contains(pattern)) {
-                    errors.add(path + "：包含禁止的图片路径或占位图服务 " + pattern);
-                }
-            }
-
-            // 2c. Vue 文件：确认使用 <script setup>（组合式 API）
-            if (path.endsWith(".vue") && content.contains("<script") && !content.contains("<script setup")) {
-                errors.add(path + "：Vue 组件未使用 <script setup> 语法，请改用组合式 API");
-            }
-
-            // 2d. package.json：禁止 "latest" 版本
-            if ("package.json".equals(path) && content.contains("\"latest\"")) {
-                errors.add("package.json：存在 \"latest\" 版本号，请指定精确版本");
-            }
-
-            // 2e. Tailwind 配置：content 路径必须覆盖 .vue 文件
-            if ("tailwind.config.js".equals(path) && !content.contains(".vue")) {
-                errors.add("tailwind.config.js：content 未覆盖 .vue 文件，Tailwind 样式将被 purge 清空");
-            }
-        }
-
-        // 3. 有 API 文档时，检查是否包含接口调用代码
-        if (hasText(ctx.getApiDocText())) {
-            boolean foundApiCall = files.stream().anyMatch(f -> {
-                if (f.getContent() == null) return false;
-                // 检查是否有 fetch( 或 window.API_BASE_URL 的引用
-                return f.getContent().contains("fetch(") || f.getContent().contains("API_BASE_URL");
-            });
-            if (!foundApiCall) {
-                errors.add("提供了 API 文档但未检测到接口调用代码（fetch / API_BASE_URL）");
             }
         }
     }
 
+    /** 逐文件内容规则检查 */
+    private void checkFileContents(List<CodeFile> files, List<String> errors) {
+        for (CodeFile file : files) {
+            String path    = file.getPath();
+            String content = file.getContent();
+            if (path == null || content == null) continue;
+
+            // 禁止服务端模块
+            for (String forbidden : FORBIDDEN_MODULES) {
+                if (content.contains(forbidden)) {
+                    errors.add(path + "：包含禁止的服务端模块引用 [" + forbidden + "]");
+                }
+            }
+
+            // 禁止本地图片路径 / 占位图服务
+            for (String pattern : FORBIDDEN_IMG_PATTERNS) {
+                if (content.contains(pattern)) {
+                    errors.add(path + "：包含禁止的图片路径或占位图服务 [" + pattern + "]");
+                }
+            }
+
+            // Vue 文件必须使用 <script setup>
+            if (path.endsWith(".vue") && content.contains("<script") && !content.contains("<script setup")) {
+                errors.add(path + "：Vue 组件未使用 <script setup> 语法");
+            }
+
+            // vite.config.js 必须引入 @vitejs/plugin-vue
+            if ("vite.config.js".equals(path) && !content.contains("@vitejs/plugin-vue")) {
+                errors.add("vite.config.js：缺少 @vitejs/plugin-vue 插件，Vue 文件无法编译");
+            }
+
+            // src/main.js 必须有 mount() 调用
+            if ("src/main.js".equals(path) && !content.contains("mount(")) {
+                errors.add("src/main.js：未找到 mount() 调用，应用无法启动");
+            }
+
+            // index.html 必须有 id="app" 挂载点
+            if ("index.html".equals(path) && !content.contains("id=\"app\"")) {
+                errors.add("index.html：缺少 id=\"app\" 挂载点，Vue 应用无法挂载");
+            }
+
+            // package.json 禁止 "latest" 版本
+            if ("package.json".equals(path) && content.contains("\"latest\"")) {
+                errors.add("package.json：存在 \"latest\" 版本号，请指定精确版本（如 \"^3.4.0\"）");
+            }
+
+            // tailwind.config.js content 必须覆盖 .vue 文件
+            if ("tailwind.config.js".equals(path) && !content.contains(".vue")) {
+                errors.add("tailwind.config.js：content 未覆盖 .vue 文件，Tailwind 样式将被 purge 清空");
+            }
+        }
+    }
+
+    /**
+     * Vue Router 使用检查：
+     * 若项目包含 src/router/index.js，则 src/main.js 必须调用 app.use(router)
+     */
+    private void checkVueRouterRegistration(Map<String, String> fileMap, List<String> errors) {
+        boolean hasRouter = fileMap.containsKey("src/router/index.js");
+        if (!hasRouter) return;
+
+        String mainJs = fileMap.get("src/main.js");
+        if (mainJs == null || !mainJs.contains("use(router)")) {
+            errors.add("src/main.js：项目包含 Vue Router 但未调用 app.use(router)");
+        }
+    }
+
+    /** 有 API 文档时，必须包含接口调用代码 */
+    private void checkApiIntegration(GenerationWorkflowContext ctx,
+                                      List<CodeFile> files,
+                                      List<String> errors) {
+        if (!hasText(ctx.getApiDocText())) return;
+
+        boolean foundApiCall = files.stream()
+                .filter(f -> f.getContent() != null)
+                .anyMatch(f -> f.getContent().contains("fetch(")
+                            || f.getContent().contains("API_BASE_URL"));
+        if (!foundApiCall) {
+            errors.add("提供了 API 文档但未检测到接口调用代码（fetch / API_BASE_URL）");
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────
-    // 二级：LLM 校验
+    // 二级：LLM 语义校验
     // ─────────────────────────────────────────────────────────────
 
+    /**
+     * 只把核心业务文件（App.vue、views、components）传给 LLM，
+     * 跳过 package.json、vite.config.js 等配置文件，
+     * 大幅降低 token 消耗（通常减少 60%~80%）。
+     */
     private void llmValidate(GeneratedCode generatedCode, List<String> suggestions) {
-        String codeJson;
+        List<CodeFile> keyFiles = generatedCode.getFiles().stream()
+                .filter(f -> f.getPath() != null && LLM_VALIDATE_PREFIXES.stream()
+                        .anyMatch(prefix -> f.getPath().startsWith(prefix)
+                                        || f.getPath().equals(prefix)))
+                .collect(Collectors.toList());
+
+        if (keyFiles.isEmpty()) {
+            log.warn("LLM validation skipped: no key business files found");
+            return;
+        }
+
+        String keyFilesJson;
         try {
-            codeJson = objectMapper.writeValueAsString(generatedCode);
+            // 只序列化业务文件，而非整个项目
+            keyFilesJson = objectMapper.writeValueAsString(
+                    Map.of("files", keyFiles)
+            );
         } catch (Exception e) {
-            log.warn("Failed to serialize code for LLM validation", e);
+            log.warn("Failed to serialize key files for LLM validation", e);
             return;
         }
 
         try {
-            String llmResult = validateCodeAiService.validateCode(codeJson).trim();
-            if ("无".equals(llmResult) || llmResult.isEmpty()) return;
+            String llmResult = validateCodeAiService.validateCode(keyFilesJson).trim();
+            if ("无".equals(llmResult) || llmResult.isEmpty()) {
+                log.info("LLM validation: no suggestions");
+                return;
+            }
 
             for (String line : llmResult.split("\n")) {
                 String trimmed = line.trim().replaceAll("^[-*\\d.]+\\s*", "");
@@ -180,7 +279,8 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
             }
             log.info("LLM validation found {} suggestions", suggestions.size());
         } catch (Exception e) {
-            log.warn("LLM validation failed, skipping", e);
+            // LLM 校验失败不影响主流程
+            log.warn("LLM validation failed, skipping: {}", e.getMessage());
         }
     }
 

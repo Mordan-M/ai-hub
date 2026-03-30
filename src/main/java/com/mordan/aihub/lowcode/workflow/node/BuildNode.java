@@ -1,21 +1,21 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.mordan.aihub.lowcode.config.GenerationProperties;
+import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.workflow.build.VueProjectBuilder;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.NodeAction;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * 构建编译节点
@@ -44,7 +44,7 @@ public class BuildNode implements NodeAction<WorkflowState> {
         Path buildDir = null;
         try {
             // 1. 创建构建目录
-            buildDir = createBuildDirectory();
+            buildDir = createBuildDirectory(ctx.getAppId());
             log.info("Build starting, build directory: {}", buildDir);
 
             // 2. 写入所有源码文件
@@ -56,21 +56,11 @@ public class BuildNode implements NodeAction<WorkflowState> {
                 log.error("Vue project build failed");
                 ctx.setSuccess(false);
                 ctx.setFailureReason("前端项目构建失败，请检查生成代码");
-                cleanupBuildDirectory(buildDir);
                 return WorkflowState.saveContext(ctx);
             }
 
             // 4. 读取编译输出，更新到 GeneratedCode
             updateGeneratedCode(generatedCode, buildDir);
-
-            // 5. 根据配置决定是否清理构建目录
-            if (generationProperties.isPersistBuildOutput()) {
-                log.info("persist-build-output is enabled, build directory is preserved at: {}", buildDir);
-                // 将持久化路径保存到上下文供后续使用
-                ctx.setPersistedBuildPath(buildDir.toString());
-            } else {
-                cleanupBuildDirectory(buildDir);
-            }
 
             log.info("Frontend build completed successfully");
 
@@ -78,9 +68,9 @@ public class BuildNode implements NodeAction<WorkflowState> {
             log.error("Build failed with exception", e);
             ctx.setSuccess(false);
             ctx.setFailureReason("代码编译异常：" + e.getMessage());
-            if (buildDir != null && !generationProperties.isPersistBuildOutput()) {
-                cleanupBuildDirectory(buildDir);
-            }
+//            if (buildDir != null && !generationProperties.isPersistBuildOutput()) {
+//                cleanupBuildDirectory(buildDir);
+//            }
         }
 
         return WorkflowState.saveContext(ctx);
@@ -88,16 +78,15 @@ public class BuildNode implements NodeAction<WorkflowState> {
 
     /**
      * 创建构建目录
-     * 如果开启持久化，则在指定基础路径下创建，否则使用系统临时目录
      */
-    private Path createBuildDirectory() throws IOException {
-        String dirName = "lowcode-build-" + UUID.randomUUID();
-        if (generationProperties.isPersistBuildOutput() && generationProperties.getPersistOutputBasePath() != null) {
-            Path basePath = Path.of(generationProperties.getPersistOutputBasePath());
-            Files.createDirectories(basePath);
-            return basePath.resolve(dirName);
-        }
-        return Files.createTempDirectory("lowcode-build-");
+    private Path createBuildDirectory(String appId) throws IOException {
+        String dirName = "lowcode-output-" + appId;
+        Path basePath = Path.of(AppConstant.CODE_OUTPUT_ROOT_DIR);
+//        if (Objects.nonNull(generationProperties.getPersistOutputBasePath())) {
+//            basePath = Path.of(generationProperties.getPersistOutputBasePath());
+//        }
+        Files.createDirectories(basePath);
+        return basePath.resolve(dirName);
     }
 
     private void writeSourceFiles(Path buildDir, GeneratedCode generatedCode) throws IOException {
@@ -140,23 +129,4 @@ public class BuildNode implements NodeAction<WorkflowState> {
         }
     }
 
-    /**
-     * 清理构建目录，只有在未开启持久化时才清理
-     */
-    private void cleanupBuildDirectory(Path buildDir) {
-        if (generationProperties.isPersistBuildOutput()) {
-            return;
-        }
-        try {
-            Files.walk(buildDir).forEach(path -> {
-                try {
-                    Files.delete(path);
-                } catch (IOException e) {
-                    // ignore
-                }
-            });
-        } catch (IOException e) {
-            // ignore
-        }
-    }
 }

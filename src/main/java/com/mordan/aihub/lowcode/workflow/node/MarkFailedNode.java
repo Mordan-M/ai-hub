@@ -23,7 +23,7 @@ import java.util.Map;
 @Component
 public class MarkFailedNode implements NodeAction<WorkflowState> {
 
-    private static final String DEFAULT_FAILURE_REASON = "超过最大重试次数，代码校验仍不通过";
+    private static final String DEFAULT_FAILURE_REASON = "代码生成失败";
 
     @Resource
     private GenerationTaskMapper generationTaskMapper;

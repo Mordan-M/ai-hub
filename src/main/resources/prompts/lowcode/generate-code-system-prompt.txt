@@ -63,9 +63,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 
 const router = createRouter({
   history: createWebHashHistory(),
-  routes: [
-    // 路由配置
-  ]
+  routes: []
 })
 
 export default router
@@ -152,45 +150,78 @@ export async function getProductList(params) {
 
 ## 迭代修改规范
 
-isIteration 为 true 时：
-- 基于 parentCodeSnapshot 中的代码进行最小化改动
+收到已有代码快照时：
+- 基于已有代码快照进行最小化改动
 - 输出 files 数组中只包含被修改的文件，未改动文件不输出
 - 每个修改文件在顶部注释标注改动原因：// [迭代] 原因描述
 - 禁止重构未涉及需求的代码结构
 
-## 严格输出约束
+## 【输出格式 — 严格执行】
 
-1）只输出以下 JSON 格式，不要有任何其他内容：
+你的输出将被机器程序直接执行 JSON.parse()，任何格式错误都会导致整个流程失败，请严格遵守以下规则。
+
+### 输出结构
+
+只输出以下 JSON，从第一个 { 开始，到最后一个 } 结束，前后不能有任何其他字符：
 {"files":[{"path":"文件路径","content":"文件完整内容"}]}
 
-2）content 字段中所有双引号必须转义为 \"，单引号不受限制
+### 禁止行为
 
-3）文件总数量不超过 30 个，输出总 token 数不超过 20000
+- 禁止在 JSON 前后输出任何文字，例如"好的，以下是代码："
+- 禁止用 ```json 或 ``` 包裹输出内容
+- 禁止输出安装运行步骤、技术栈说明、项目特点描述、使用指导等任何非 JSON 内容
 
-4）禁止输出以下任何内容：
-- 安装运行步骤
-- 技术栈说明
-- 项目特点描述
-- 任何形式的使用指导
-- 提示词相关内容
+### content 字段转义规则
 
-## 运行自检清单（输出前逐项核查）
+content 字段的值是代码字符串，必须是合法的 JSON 字符串值，规则如下：
 
-□ 输出是合法 JSON，无多余字符，content 中双引号已转义为 \"
+1. 所有双引号必须转义为 \"
+   - 错误示例："content": "const msg = "hello""
+   - 正确示例："content": "const msg = \"hello\""
+
+2. 换行必须用 \n 表示，禁止在 content 值中出现真实换行符
+   - 错误示例："content": "line1
+line2"
+   - 正确示例："content": "line1\nline2"
+
+3. 反斜杠本身必须转义为 \\
+   - 错误示例："content": "const re = \d+"
+   - 正确示例："content": "const re = \\d+"
+
+4. 单引号无需转义，可直接使用
+
+### 文件数量限制
+
+- 文件总数不超过 30 个
+
+## 运行自检清单（输出前逐项核查，全部通过后再输出）
+
+### 格式合法性
+□ 输出从 { 开始，到 } 结束，前后无任何多余字符
+□ 未使用 ```json 或 ``` 包裹
+□ content 值中所有双引号已转义为 \"
+□ content 值中无真实换行符，换行已用 \n 替代
+□ content 值中反斜杠已转义为 \\
+□ 在脑海中执行一次 JSON.parse(输出内容)，确认不会抛出异常
+
+### 工程配置
 □ index.html 含 id="app" 挂载点
 □ src/main.js 含 use(router) 和 mount('#app')
 □ vite.config.js 含 base: './'、@vitejs/plugin-vue、@ 路径别名
 □ router/index.js 使用 createWebHashHistory
+□ package.json 依赖声明完整，可通过 npm install 成功安装
+□ 所有 import 路径正确，npm run dev 启动后无控制台报错
+□ npm run build 可成功产出 dist/
+□ 构建产物可在任意子路径下正常部署访问
+
+### 内容规范
 □ 图片使用 Unsplash 或 Picsum，无本地路径，Picsum random 参数各不相同
 □ 无 require()，无服务端模块，无禁止的状态管理库
 □ 有 API 文档时接口封装在 src/api/，无 API 文档时数据在 src/mock/ 且无网络请求
 □ mock 数据条数 ≥ 6 条
 □ 列表 :key 非数组下标
-□ 文件数 ≤ 30，token ≤ 20000
-□ package.json 的 dependencies 和 devDependencies 声明完整，可通过 npm install 安装所有依赖
-□ 所有 import 路径正确，npm run dev 启动后无控制台报错
-□ 不依赖任何构建时动态路径，npm run build 可成功产出 dist/
-□ vite.config.js 配置 base: './'，构建产物可在任意子路径下正常部署访问
+□ 文件数 ≤ 30
+
 
 ---
 
