@@ -2,8 +2,6 @@ package com.mordan.aihub.lowcode.domain.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.mordan.aihub.lowcode.domain.entity.GeneratedVersion;
-import com.mordan.aihub.lowcode.web.vo.DeployResultVO;
-import com.mordan.aihub.lowcode.web.vo.DeployStatusVO;
 import com.mordan.aihub.lowcode.web.vo.TaskVO;
 import com.mordan.aihub.lowcode.web.vo.VersionVO;
 import org.springframework.core.io.Resource;
@@ -41,39 +39,4 @@ public interface GeneratedVersionService extends IService<GeneratedVersion> {
      * @return 新生成任务VO
      */
     TaskVO rollbackToVersion(Long userId, Long appId, Long versionId);
-
-    /**
-     * 下载版本ZIP包（带鉴权）
-     * @param userId 用户ID
-     * @param appId 应用ID
-     * @param versionId 版本ID
-     * @return ZIP包响应
-     */
-    ResponseEntity<Resource> downloadVersion(Long userId, Long appId, Long versionId);
-
-    /**
-     * 部署版本（带鉴权）
-     * @param userId 用户ID
-     * @param appId 应用ID
-     * @param versionId 版本ID
-     * @return 部署结果
-     */
-    DeployResultVO deployVersion(Long userId, Long appId, Long versionId);
-
-    /**
-     * 下线版本（带鉴权）
-     * @param userId 用户ID
-     * @param appId 应用ID
-     * @param versionId 版本ID
-     */
-    void undeployVersion(Long userId, Long appId, Long versionId);
-
-    /**
-     * 获取部署状态（带鉴权）
-     * @param userId 用户ID
-     * @param appId 应用ID
-     * @param versionId 版本ID
-     * @return 部署状态
-     */
-    DeployStatusVO getDeployStatus(Long userId, Long appId, Long versionId);
 }

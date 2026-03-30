@@ -18,7 +18,7 @@ public class StaticResourceConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 访问 /preview/** 时映射到 dist/ 目录
-        registry.addResourceHandler("/preview/**")
+        registry.addResourceHandler("/lowcode/preview/**")
                 .addResourceLocations("file:" + AppConstant.CODE_OUTPUT_ROOT_DIR + "/")
                 .setCacheControl(CacheControl.noCache());
     }

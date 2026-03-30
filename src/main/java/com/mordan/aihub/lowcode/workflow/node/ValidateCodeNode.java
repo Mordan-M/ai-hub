@@ -1,7 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mordan.aihub.lowcode.ai.ValidateCodeAiService;
+import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
 import com.mordan.aihub.lowcode.workflow.state.CodeFile;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
@@ -76,7 +76,7 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
     );
 
     @Resource
-    private ValidateCodeAiService validateCodeAiService;
+    private LowCodeGenerateAiService lowCodeGenerateAiService;
     @Resource
     private ObjectMapper objectMapper;
 
@@ -265,7 +265,7 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
         }
 
         try {
-            String llmResult = validateCodeAiService.validateCode(keyFilesJson).trim();
+            String llmResult = lowCodeGenerateAiService.validateCode(keyFilesJson).trim();
             if ("无".equals(llmResult) || llmResult.isEmpty()) {
                 log.info("LLM validation: no suggestions");
                 return;

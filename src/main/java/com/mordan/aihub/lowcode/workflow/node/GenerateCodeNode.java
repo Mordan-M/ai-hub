@@ -4,9 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.mordan.aihub.lowcode.ai.GenerateCodeAiService;
+import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
+import com.mordan.aihub.lowcode.workflow.state.ParsedIntent;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +35,7 @@ import java.util.Map;
 public class GenerateCodeNode implements NodeAction<WorkflowState> {
 
     @Resource
-    private GenerateCodeAiService generateCodeAiService;
+    private LowCodeGenerateAiService lowCodeGenerateAiService;
     @Resource
     private ObjectMapper objectMapper;
 
@@ -84,11 +85,13 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
      * 使用 XML 标签包裹，帮助模型准确定位各段内容。
      */
     private String buildUserPrompt(GenerationWorkflowContext ctx) throws JsonProcessingException {
+        ParsedIntent parsedIntent = ctx.getParsedIntent();
+
         StringBuilder sb = new StringBuilder();
 
         // ── 需求结构（必填）──
-        String parsedIntentJson = ctx.getParsedIntent() != null
-                ? objectMapper.writeValueAsString(ctx.getParsedIntent())
+        String parsedIntentJson = parsedIntent != null
+                ? objectMapper.writeValueAsString(parsedIntent)
                 : ctx.getParsedIntentJson();
         appendSection(sb, "需求结构", parsedIntentJson);
 
@@ -147,7 +150,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         ctx.setCodeSuccess(true);
         String rawResult;
         try {
-            rawResult = generateCodeAiService.generateCode(userPrompt);
+            rawResult = lowCodeGenerateAiService.generateCode(userPrompt);
             if (!hasText(rawResult)) {
                 return failWith(ctx, "代码生成失败：AI 返回内容为空");
             }

@@ -1,7 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mordan.aihub.lowcode.ai.RepairCodeAiService;
+import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
 import com.mordan.aihub.lowcode.workflow.state.CodeFile;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 public class RepairCodeNode implements NodeAction<WorkflowState> {
 
     @Resource
-    private RepairCodeAiService repairCodeAiService;
+    private LowCodeGenerateAiService lowCodeGenerateAiService;
     @Resource
     private ObjectMapper objectMapper;
 
@@ -187,9 +187,9 @@ public class RepairCodeNode implements NodeAction<WorkflowState> {
     private GeneratedCode callRepairAi(String userPrompt, GeneratedCode fallback) {
         String rawResult;
         try {
-            rawResult = repairCodeAiService.repairCode(userPrompt).trim();
+            rawResult = lowCodeGenerateAiService.repairCode(userPrompt).trim();
         } catch (Exception e) {
-            log.error("RepairCodeAiService call failed, keeping original", e);
+            log.error("LowCodeGenerateAiService repairCode call failed, keeping original", e);
             return fallback;
         }
 

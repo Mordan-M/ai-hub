@@ -2,19 +2,24 @@ package com.mordan.aihub.lowcode.workflow;
 
 import cn.hutool.core.util.BooleanUtil;
 import com.mordan.aihub.lowcode.config.GenerationProperties;
-import com.mordan.aihub.lowcode.workflow.node.*;
+import com.mordan.aihub.lowcode.workflow.node.BuildNode;
+import com.mordan.aihub.lowcode.workflow.node.GenerateCodeNode;
+import com.mordan.aihub.lowcode.workflow.node.IntentCheckNode;
+import com.mordan.aihub.lowcode.workflow.node.MarkFailedNode;
+import com.mordan.aihub.lowcode.workflow.node.ParseIntentNode;
+import com.mordan.aihub.lowcode.workflow.node.RejectNode;
+import com.mordan.aihub.lowcode.workflow.node.RepairCodeNode;
+import com.mordan.aihub.lowcode.workflow.node.ValidateCodeNode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.IntentCheckResult;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.bsc.langgraph4j.CompileConfig;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphStateException;
 import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
-import org.bsc.langgraph4j.checkpoint.MemorySaver;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -55,9 +60,9 @@ public class CodeGenerationWorkflow {
     @Resource private ValidateCodeNode validateCodeNode;
     @Resource private RepairCodeNode repairCodeNode;
     @Resource private BuildNode buildNode;
-    @Resource private SaveVersionNode saveVersionNode;
+//    @Resource private SaveVersionNode saveVersionNode;
     @Resource private MarkFailedNode markFailedNode;
-    @Resource private MemorySaver memorySaver;
+//    @Resource private MemorySaver memorySaver;
     @Resource private GenerationProperties generationProperties;
 
     // 使用虚拟线程池，每个任务独立线程，互不阻塞
@@ -77,7 +82,7 @@ public class CodeGenerationWorkflow {
         graph.addNode("validateCode", AsyncNodeAction.node_async(validateCodeNode));
         graph.addNode("repair",       AsyncNodeAction.node_async(repairCodeNode));
         graph.addNode("build",        AsyncNodeAction.node_async(buildNode));
-        graph.addNode("saveVersion",  AsyncNodeAction.node_async(saveVersionNode));
+//        graph.addNode("saveVersion",  AsyncNodeAction.node_async(saveVersionNode));
         graph.addNode("fail",         AsyncNodeAction.node_async(markFailedNode));
 
         // ── 边与路由 ────────────────────────────────────────────────
@@ -89,7 +94,10 @@ public class CodeGenerationWorkflow {
                 "no_intent",  "reject"
         ));
 
-        graph.addEdge("parseIntent",  "generateCode");
+        graph.addConditionalEdges("parseIntent", edge_async(this::parseIntentRouter), Map.of(
+                "success", "generateCode",
+                "fail",  "reject"
+        ));
 
         // 校验代码生成结果
         graph.addConditionalEdges("generateCode", edge_async(this::generateSuccess), Map.of(
@@ -107,19 +115,24 @@ public class CodeGenerationWorkflow {
 
         // repair 完成后回到 validateCode 重新校验（循环收敛）
         graph.addEdge("repair",      "validateCode");
-        graph.addEdge("build",       "saveVersion");
 
+        graph.addEdge("build",       END);
         graph.addEdge("reject",      END);
-        graph.addEdge("saveVersion", END);
+//        graph.addEdge("saveVersion", END);
         graph.addEdge("fail",        END);
 
         // ── 编译 ────────────────────────────────────────────────────
-        CompileConfig compileConfig = CompileConfig.builder()
-                .checkpointSaver(memorySaver)
-                .build();
-        compiledGraph = graph.compile(compileConfig);
+//        CompileConfig compileConfig = CompileConfig.builder()
+//                .checkpointSaver(memorySaver)
+//                .build();
+        compiledGraph = graph.compile();
 
         log.info("CodeGenerationWorkflow initialized successfully");
+    }
+
+    private String parseIntentRouter(WorkflowState workflowState) {
+        GenerationWorkflowContext context = workflowState.context();
+        return context.getSuccess() ? "success" : "fail";
     }
 
     private String generateSuccess(WorkflowState workflowState) {

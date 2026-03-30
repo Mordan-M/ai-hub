@@ -1,6 +1,5 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
-import com.mordan.aihub.lowcode.config.GenerationProperties;
 import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.workflow.build.VueProjectBuilder;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
@@ -27,9 +26,9 @@ public class BuildNode implements NodeAction<WorkflowState> {
 
     @Resource
     private VueProjectBuilder vueProjectBuilder;
-
-    @Resource
-    private GenerationProperties generationProperties;
+//
+//    @Resource
+//    private GenerationProperties generationProperties;
 
     @Override
     public Map<String, Object> apply(WorkflowState state) {

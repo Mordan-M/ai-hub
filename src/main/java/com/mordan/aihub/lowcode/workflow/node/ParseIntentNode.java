@@ -1,7 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mordan.aihub.lowcode.ai.ParseIntentAiService;
+import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.ParsedIntent;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
@@ -22,7 +22,7 @@ import java.util.Map;
 public class ParseIntentNode implements NodeAction<WorkflowState> {
 
     @Resource
-    private ParseIntentAiService parseIntentAiService;
+    private LowCodeGenerateAiService lowCodeGenerateAiService;
 
     @Resource
     private ObjectMapper objectMapper;
@@ -33,7 +33,7 @@ public class ParseIntentNode implements NodeAction<WorkflowState> {
         String userPrompt = buildUserPrompt(ctx);
 
         try {
-            String jsonResult = parseIntentAiService.parseIntent(userPrompt).trim();
+            String jsonResult = lowCodeGenerateAiService.parseIntent(userPrompt).trim();
             // 解析 JSON 为 POJO
             ParsedIntent parsedIntent = objectMapper.readValue(jsonResult, ParsedIntent.class);
             ctx.setParsedIntent(parsedIntent);

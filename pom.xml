@@ -28,6 +28,7 @@
         <spring-boot.version>3.5.11</spring-boot.version>
         <langgraph4j.version>1.8.10</langgraph4j.version>
         <hutool-all.version>5.8.20</hutool-all.version>
+        <guava.version>33.5.0-jre</guava.version>
     </properties>
 
     <dependencies>
@@ -189,6 +190,12 @@
             <version>${hutool-all.version}</version>
         </dependency>
 
+        <!-- Google Guava -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version> <!-- 建议使用最新稳定版 -->
+        </dependency>
     </dependencies>
 
     <build>
