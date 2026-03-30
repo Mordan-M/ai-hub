@@ -1,9 +1,9 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.mordan.aihub.lowcode.ai.GenerateCodeAiService;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
@@ -188,6 +188,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
                 log.info("JSON parse succeeded after heuristic repair");
                 return result;
             } catch (Exception e) {
+                logParseErrorContext(rawResult, e);
                 log.error("Third parse failed after repair: {}", e.getMessage());
             }
         }
@@ -195,6 +196,24 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         log.error("All JSON parse attempts failed. raw head={}",
                 rawResult.substring(0, Math.min(rawResult.length(), 300)));
         return failWith(ctx, "代码生成格式解析失败，请重试");
+    }
+
+    /**
+     * 定位 JSON 解析失败的大致位置，输出上下文片段便于调试
+     */
+    private void logParseErrorContext(String raw, Exception e) {
+        String msg = e.getMessage();
+        // 从错误信息提取列号
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("column: (\\d+)")
+                .matcher(msg);
+        if (m.find()) {
+            int col = Integer.parseInt(m.group(1));
+            int start = Math.max(0, col - 100);
+            int end   = Math.min(raw.length(), col + 100);
+            log.error("Parse error near column {}, context:\n...{}...",
+                    col, raw.substring(start, end));
+        }
     }
 
     /**
@@ -207,20 +226,41 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
      */
     private String repairJsonString(String raw) {
         if (raw == null) return null;
-        try {
-            JsonFactory factory = new JsonFactory();
-            factory.enable(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES);
-            factory.enable(JsonParser.Feature.ALLOW_SINGLE_QUOTES);
-            factory.enable(JsonParser.Feature.ALLOW_TRAILING_COMMA);
-            factory.enable(JsonParser.Feature.ALLOW_COMMENTS);
 
-            ObjectMapper lenientMapper = new ObjectMapper(factory);
-            Object parsed = lenientMapper.readValue(raw, Object.class);
+        // 预处理：修复 content 字段值中常见的反斜杠问题
+        String preprocessed = preprocessContentFields(raw);
+
+        try {
+            ObjectMapper lenientMapper = JsonMapper.builder()
+                    .enable(JsonReadFeature.ALLOW_UNQUOTED_FIELD_NAMES)
+                    .enable(JsonReadFeature.ALLOW_SINGLE_QUOTES)
+                    .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
+                    .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
+                    .enable(JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER) // 关键：允许任意字符的反斜杠转义
+                    .build();
+
+            Object parsed = lenientMapper.readValue(preprocessed, Object.class);
             return objectMapper.writeValueAsString(parsed);
         } catch (Exception e) {
             log.warn("Heuristic JSON repair failed: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 预处理：修复模型输出中常见的反斜杠问题。
+     * 核心问题：模型有时把 { "key": "val" } 输出为 {\"key\": \"val\"}（多加了反斜杠）
+     * 或者把反斜杠本身漏转义，如 \d 应该是 \\d
+     */
+    private String preprocessContentFields(String raw) {
+        // ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER 已经能处理大多数情况
+        // 这里只处理一种特殊情况：\" 出现在 JSON key 位置（不在字符串值内）
+        // 表现为: {"files":[{\"path\":\"xxx\"}]} 整个都被多加了反斜杠
+        if (raw.contains("{\\\"")) {
+            // 整体被多加了一层反斜杠转义，先 unescape 一次
+            return raw.replace("\\\"", "\"");
+        }
+        return raw;
     }
 
     /**

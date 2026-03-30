@@ -48,10 +48,9 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
             "package.json",
             "index.html",
             "vite.config.js",
-            "tailwind.config.js",
-            "postcss.config.js",
             "src/main.js",
-            "src/App.vue"
+            "src/App.vue",
+            "src/router/index.js"   // prompt 明确要求必须有路由文件
     );
 
     private static final List<String> FORBIDDEN_MODULES = List.of(
@@ -181,6 +180,11 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
                 errors.add("vite.config.js：缺少 @vitejs/plugin-vue 插件，Vue 文件无法编译");
             }
 
+            // vite.config.js 必须配置 base: './'（支持子路径部署）
+            if ("vite.config.js".equals(path) && !content.contains("base:")) {
+                errors.add("vite.config.js：缺少 base 配置，构建产物无法在子路径下访问");
+            }
+
             // src/main.js 必须有 mount() 调用
             if ("src/main.js".equals(path) && !content.contains("mount(")) {
                 errors.add("src/main.js：未找到 mount() 调用，应用无法启动");
@@ -193,13 +197,9 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
 
             // package.json 禁止 "latest" 版本
             if ("package.json".equals(path) && content.contains("\"latest\"")) {
-                errors.add("package.json：存在 \"latest\" 版本号，请指定精确版本（如 \"^3.4.0\"）");
+                errors.add("package.json：存在 \"latest\" 版本号，请指定精确版本");
             }
 
-            // tailwind.config.js content 必须覆盖 .vue 文件
-            if ("tailwind.config.js".equals(path) && !content.contains(".vue")) {
-                errors.add("tailwind.config.js：content 未覆盖 .vue 文件，Tailwind 样式将被 purge 清空");
-            }
         }
     }
 
