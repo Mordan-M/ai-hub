@@ -39,7 +39,7 @@ public class GeneratedVersionServiceImpl extends ServiceImpl<GeneratedVersionMap
 
         List<GeneratedVersion> versions = this.lambdaQuery()
                 .eq(GeneratedVersion::getAppId, appId)
-                .orderByDesc(GeneratedVersion::getVersionNumber)
+                .orderByDesc(GeneratedVersion::getUpdatedAt)
                 .list();
         return versions.stream()
                 .map(this::toVO)
@@ -88,10 +88,12 @@ public class GeneratedVersionServiceImpl extends ServiceImpl<GeneratedVersionMap
         return VersionVO.builder()
                 .id(version.getId())
                 .appId(version.getAppId())
-                .versionNumber(version.getVersionNumber())
                 .previewUrl(version.getPreviewUrl())
                 .downloadUrl(version.getDownloadUrl())
+                .projectSummary(version.getProjectSummary())
+                .fileSize(version.getFileSize())
                 .createdAt(version.getCreatedAt())
+                .updatedAt(version.getUpdatedAt())
                 .build();
     }
 }

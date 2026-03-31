@@ -79,7 +79,7 @@ public class BuildNode implements NodeAction<WorkflowState> {
      * 创建构建目录
      */
     private Path createBuildDirectory(String appId) throws IOException {
-        String dirName = "lowcode-output-" + appId;
+        String dirName = AppConstant.CODE_OUTPUT_PREFIX + appId;
         Path basePath = Path.of(AppConstant.CODE_OUTPUT_ROOT_DIR);
 //        if (Objects.nonNull(generationProperties.getPersistOutputBasePath())) {
 //            basePath = Path.of(generationProperties.getPersistOutputBasePath());

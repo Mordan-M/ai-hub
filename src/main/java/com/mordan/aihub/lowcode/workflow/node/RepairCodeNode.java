@@ -66,7 +66,7 @@ public class RepairCodeNode implements NodeAction<WorkflowState> {
         String userPrompt = buildRepairPrompt(ctx, filesToRepair);
 
         // 4. 调用 AI，获取 patch
-        GeneratedCode patch = callRepairAi(userPrompt, original);
+        GeneratedCode patch = callRepairAi(ctx.getAppId(), userPrompt, original);
 
         // 5. patch 合并：修复的文件覆盖原始，其余文件完整保留
         GeneratedCode merged = mergeRepaired(original, patch);
@@ -184,10 +184,10 @@ public class RepairCodeNode implements NodeAction<WorkflowState> {
     // AI 调用 + JSON 解析
     // ─────────────────────────────────────────────────────────────
 
-    private GeneratedCode callRepairAi(String userPrompt, GeneratedCode fallback) {
+    private GeneratedCode callRepairAi(String appId, String userPrompt, GeneratedCode fallback) {
         String rawResult;
         try {
-            rawResult = lowCodeGenerateAiService.repairCode(userPrompt).trim();
+            rawResult = lowCodeGenerateAiService.repairCode(appId, userPrompt).trim();
         } catch (Exception e) {
             log.error("LowCodeGenerateAiService repairCode call failed, keeping original", e);
             return fallback;

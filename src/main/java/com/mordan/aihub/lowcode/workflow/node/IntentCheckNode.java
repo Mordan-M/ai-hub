@@ -1,7 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
+import com.mordan.aihub.lowcode.ai.LowCodeStatelessAiService;
 import com.mordan.aihub.lowcode.workflow.state.IntentCheckResult;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.Resource;
@@ -21,7 +21,7 @@ import java.util.Map;
 public class IntentCheckNode implements NodeAction<WorkflowState> {
 
     @Resource
-    private LowCodeGenerateAiService lowCodeGenerateAiService;
+    private LowCodeStatelessAiService lowCodeStatelessAiService;
     @Resource
     private ObjectMapper objectMapper;
 
@@ -42,7 +42,7 @@ public class IntentCheckNode implements NodeAction<WorkflowState> {
     private IntentCheckResult doCheckIntent(String userPrompt) {
         String rawResult;
         try {
-            rawResult = lowCodeGenerateAiService.checkIntent(userPrompt).trim();
+            rawResult = lowCodeStatelessAiService.checkIntent(userPrompt).trim();
         } catch (Exception e) {
             log.error("Intent check call failed, defaulting hasIntent=true", e);
             return IntentCheckResult.builder().hasIntent(true).reason("服务调用失败，默认放行").build();

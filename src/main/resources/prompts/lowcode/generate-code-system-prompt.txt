@@ -163,7 +163,32 @@ export async function getProductList(params) {
 ### 输出结构
 
 只输出以下 JSON，从第一个 { 开始，到最后一个 } 结束，前后不能有任何其他字符：
-{"files":[{"path":"文件路径","content":"文件完整内容"}]}
+
+```
+{
+  "summary": {
+    "name": "项目名称",
+    "files": [
+      { "path": "src/App.vue", "description": "根组件，整体布局，包含导航栏和路由出口" },
+      { "path": "src/components/Header.vue", "description": "顶部导航栏组件，提供网站标题和菜单导航" }
+    ],
+    "dependencies": {
+      "vue": "^3.4",
+      "element-plus": "^2.5"
+    }
+  },
+  "files": [
+    { "path": "文件路径", "content": "文件完整内容" }
+  ]
+}
+```
+
+- `summary` 必须是合法的结构化 JSON，清晰描述项目名称、每个文件的作用、所有依赖信息
+- `summary.name` 是项目名称
+- `summary.files` 每个文件的路径与功能描述
+- `summary.dependencies` 所有依赖及版本号
+- `files` 是生成的代码文件数组，每个文件包含 `path` 和完整 `content`
+- 整个输出必须是可解析的 JSON
 
 ### 禁止行为
 
@@ -221,7 +246,10 @@ line2"
 
 ### 格式合法性
 □ 输出从 { 开始，到 } 结束，前后无任何多余字符
-□ 未使用 ```json 或 ``` 包裹
+□ 包含 summary 字段和 files 字段，结构正确：{"summary": {...}, "files":[...]}
+□ summary 是结构化 JSON 对象，包含 name、files 数组、dependencies 对象
+□ summary.files 数组中每个文件有 path 和 description 两个字段
+□ 未使用 ```json 或 ``` 包裹最终输出
 □ content 值中所有双引号已转义为 \"
 □ content 值中无真实换行符，换行已用 \n 替代
 □ content 值中反斜杠已转义为 \\

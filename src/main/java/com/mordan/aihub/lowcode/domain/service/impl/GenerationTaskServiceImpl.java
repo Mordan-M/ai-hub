@@ -1,28 +1,26 @@
 package com.mordan.aihub.lowcode.domain.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.config.GenerationProperties;
 import com.mordan.aihub.lowcode.domain.entity.GeneratedVersion;
 import com.mordan.aihub.lowcode.domain.entity.GenerationTask;
 import com.mordan.aihub.lowcode.domain.enums.TaskStatus;
-import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
 import com.mordan.aihub.lowcode.domain.service.ApplicationService;
 import com.mordan.aihub.lowcode.domain.service.ConversationService;
 import com.mordan.aihub.lowcode.domain.service.GenerationTaskService;
 import com.mordan.aihub.lowcode.mapper.GeneratedVersionMapper;
+import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
+import com.mordan.aihub.lowcode.web.request.GenerateRequest;
+import com.mordan.aihub.lowcode.web.vo.TaskVO;
 import com.mordan.aihub.lowcode.workflow.CodeGenerationWorkflow;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
-import com.mordan.aihub.lowcode.web.request.GenerateRequest;
-import com.mordan.aihub.lowcode.web.vo.TaskVO;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -81,13 +79,15 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
         updateById(task);
 
         // 5. 准备初始状态
-        String parentCodeSnapshot = null;
-        if (req.getBaseVersionId() != null) {
-            GeneratedVersion baseVersion = generatedVersionMapper.selectById(req.getBaseVersionId());
-            if (baseVersion != null && baseVersion.getCodeStoragePath() != null) {
-                // 读取已有代码文件，构建parentCodeSnapshot（JSON格式）
-                parentCodeSnapshot = readCodeSnapshot(baseVersion.getCodeStoragePath());
-            }
+        // 查询已有项目摘要（如果存在）
+        String existingProjectSummary = null;
+        GeneratedVersion existingVersion = generatedVersionMapper.selectOne(
+                new LambdaQueryWrapper<GeneratedVersion>()
+                        .eq(GeneratedVersion::getAppId, appId)
+                        .last("LIMIT 1")
+        );
+        if (existingVersion != null) {
+            existingProjectSummary = existingVersion.getProjectSummary();
         }
 
         // 使用 GenerationWorkflowContext 封装所有初始状态
@@ -97,7 +97,7 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
                 .taskId(task.getId().toString())
                 .userPrompt(req.getPrompt())
                 .apiDocText(req.getApiDocText() != null ? req.getApiDocText() : "")
-                .parentCodeSnapshot(parentCodeSnapshot != null ? parentCodeSnapshot : "")
+                .existingProjectSummary(existingProjectSummary)
                 .build();
 
         Map<String, Object> initialState = Map.of(WorkflowState.CONTEXT_KEY, context);
@@ -138,34 +138,6 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
         return tasks.stream()
                 .map(this::toVO)
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * 读取已有版本代码作为快照
-     */
-    private String readCodeSnapshot(String storagePath) {
-        try {
-            var root = Path.of(storagePath);
-            var files = Files.walk(root)
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().matches(".*\\.(jsx|js|html|css|json)$"))
-                    .map(p -> {
-                        try {
-                            return Map.of(
-                                    "path", root.relativize(p).toString().replace('\\', '/'),
-                                    "content", Files.readString(p)
-                            );
-                        } catch (IOException e) {
-                            return null;
-                        }
-                    })
-                    .filter(m -> m != null)
-                    .toList();
-            return objectMapper.writeValueAsString(Map.of("files", files));
-        } catch (Exception e) {
-            log.warn("Failed to read parent code snapshot", e);
-            return null;
-        }
     }
 
     /**

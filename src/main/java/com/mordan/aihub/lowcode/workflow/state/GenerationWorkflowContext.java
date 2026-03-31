@@ -48,11 +48,6 @@ public class GenerationWorkflowContext implements Serializable {
     private String apiDocText;
 
     /**
-     * 上一版本代码快照（迭代时使用）
-     */
-    private String parentCodeSnapshot;
-
-    /**
      * 意图检查结果
      */
     private IntentCheckResult intentCheckResult;
@@ -111,4 +106,9 @@ public class GenerationWorkflowContext implements Serializable {
      * 持久化构建输出的路径（开启 persist-build-output 时才有值）
      */
     private String persistedBuildPath;
+
+    /**
+     * 已有项目的文件摘要（迭代修改时使用，来自上一次生成）
+     */
+    private String existingProjectSummary;
 }

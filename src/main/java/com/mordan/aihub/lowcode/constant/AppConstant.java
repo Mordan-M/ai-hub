@@ -5,6 +5,8 @@ package com.mordan.aihub.lowcode.constant;
  */
 public interface AppConstant {
 
+    String CODE_OUTPUT_PREFIX = "lowcode-output-";
+
     /**
      * 应用生成目录
      */

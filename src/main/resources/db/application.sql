@@ -34,27 +34,22 @@ CREATE TABLE IF NOT EXISTS `generation_task` (
     INDEX `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='代码生成任务表';
 
--- 3. 生成版本表
+-- 3. 生成版本表（每个应用对应一条记录，只保留最新代码）
 CREATE TABLE IF NOT EXISTS `generated_version` (
     `id`                BIGINT AUTO_INCREMENT PRIMARY KEY,
     `app_id`            BIGINT NOT NULL COMMENT '所属应用ID',
-    `task_id`           BIGINT NOT NULL COMMENT '生成此版本的任务ID',
-    `version_number`    INT NOT NULL COMMENT '版本号（自增）',
+    `task_id`           BIGINT NOT NULL COMMENT '最后一次生成此应用代码的任务ID',
     `code_storage_path` VARCHAR(500) COMMENT '代码文件存储路径',
-    `preview_url`       VARCHAR(500) COMMENT '沙箱预览地址',
+    `preview_url`       VARCHAR(500) COMMENT '预览/部署地址',
     `download_url`      VARCHAR(500) COMMENT '下载地址',
     `file_size`         BIGINT COMMENT '代码包大小（字节）',
     `validation_result` JSON COMMENT '代码校验详情',
-    `prompt_snapshot`   TEXT COMMENT '生成此版本时的完整提示词快照',
-    `deploy_status`     ENUM('NOT_DEPLOYED','DEPLOYED','UNDEPLOYED') NOT NULL DEFAULT 'NOT_DEPLOYED',
-    `deploy_slug`       VARCHAR(32) DEFAULT NULL COMMENT '部署路径随机标识符，全局唯一',
-    `deploy_url`        VARCHAR(500) COMMENT '完整部署访问地址',
-    `deployed_at`       BIGINT(20) DEFAULT NULL COMMENT '部署时间戳（毫秒）',
-    `undeployed_at`     BIGINT(20) DEFAULT NULL COMMENT '下线时间戳（毫秒）',
+    `prompt_snapshot`   TEXT COMMENT '生成时的完整提示词快照',
+    `project_summary`   TEXT COMMENT '项目文件摘要（大模型返回，简要描述每个文件作用）',
     `created_at`        BIGINT(20) NOT NULL DEFAULT 0 COMMENT '创建时间戳（毫秒）',
-    INDEX `idx_app_id` (`app_id`),
-    UNIQUE INDEX `idx_deploy_slug` (`deploy_slug`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='生成代码版本表';
+    `updated_at`        BIGINT(20) NOT NULL DEFAULT 0 COMMENT '更新时间戳（毫秒）',
+    UNIQUE KEY `uk_app_id` (`app_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='生成代码表（每个应用一条记录，只保留最新）';
 
 -- 4. 对话消息表
 CREATE TABLE IF NOT EXISTS `conversation_message` (

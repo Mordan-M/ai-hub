@@ -107,17 +107,20 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
 //            appendSection(sb, "图片需求关键词", ctx.getImageNeeds());
 //        }
 
-        // ── 迭代模式：已有代码快照（可选）──
-        if (hasText(ctx.getParentCodeSnapshot())) {
-            appendSection(sb, "已有代码快照", ctx.getParentCodeSnapshot());
+        // ── 迭代模式：基于已有项目（每个 app 仅保留一份最新代码）──
+        // appId 不为空表示已有项目，这是一次迭代修改
+        if (hasText(ctx.getAppId())) {
             appendSection(sb, "迭代说明",
-                    "这是一次迭代修改任务。请基于【已有代码快照】进行最小化改动：\n" +
+                    "这是一次迭代修改任务。这是一个已有项目，请基于用户新需求进行最小化改动：\n" +
                     "- 只修改需求中明确要求变更的部分\n" +
                     "- 输出的 files 数组中只包含被修改的文件，未改动文件不输出\n" +
                     "- 每个修改文件在顶部注释标注改动原因：// [迭代] 原因描述\n" +
                     "- 禁止重构未涉及需求的代码结构");
+            // 注入已有项目摘要，帮助模型理解现有文件结构
+            if (hasText(ctx.getExistingProjectSummary())) {
+                appendSection(sb, "已有项目文件摘要", ctx.getExistingProjectSummary());
+            }
         } else {
-            appendSection(sb, "已有代码快照", "无");
             appendSection(sb, "迭代说明", "这是一次全新生成任务，请输出所有必须文件。");
         }
 
@@ -150,7 +153,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         ctx.setCodeSuccess(true);
         String rawResult;
         try {
-            rawResult = lowCodeGenerateAiService.generateCode(userPrompt);
+            rawResult = lowCodeGenerateAiService.generateCode(ctx.getAppId(), userPrompt);
             if (!hasText(rawResult)) {
                 return failWith(ctx, "代码生成失败：AI 返回内容为空");
             }

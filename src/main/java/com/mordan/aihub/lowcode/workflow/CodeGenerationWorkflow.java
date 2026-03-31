@@ -9,6 +9,7 @@ import com.mordan.aihub.lowcode.workflow.node.MarkFailedNode;
 import com.mordan.aihub.lowcode.workflow.node.ParseIntentNode;
 import com.mordan.aihub.lowcode.workflow.node.RejectNode;
 import com.mordan.aihub.lowcode.workflow.node.RepairCodeNode;
+import com.mordan.aihub.lowcode.workflow.node.SaveVersionNode;
 import com.mordan.aihub.lowcode.workflow.node.ValidateCodeNode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.IntentCheckResult;
@@ -60,7 +61,7 @@ public class CodeGenerationWorkflow {
     @Resource private ValidateCodeNode validateCodeNode;
     @Resource private RepairCodeNode repairCodeNode;
     @Resource private BuildNode buildNode;
-//    @Resource private SaveVersionNode saveVersionNode;
+    @Resource private SaveVersionNode saveVersionNode;
     @Resource private MarkFailedNode markFailedNode;
 //    @Resource private MemorySaver memorySaver;
     @Resource private GenerationProperties generationProperties;
@@ -82,7 +83,7 @@ public class CodeGenerationWorkflow {
         graph.addNode("validateCode", AsyncNodeAction.node_async(validateCodeNode));
         graph.addNode("repair",       AsyncNodeAction.node_async(repairCodeNode));
         graph.addNode("build",        AsyncNodeAction.node_async(buildNode));
-//        graph.addNode("saveVersion",  AsyncNodeAction.node_async(saveVersionNode));
+        graph.addNode("saveVersion",  AsyncNodeAction.node_async(saveVersionNode));
         graph.addNode("fail",         AsyncNodeAction.node_async(markFailedNode));
 
         // ── 边与路由 ────────────────────────────────────────────────
@@ -116,9 +117,10 @@ public class CodeGenerationWorkflow {
         // repair 完成后回到 validateCode 重新校验（循环收敛）
         graph.addEdge("repair",      "validateCode");
 
-        graph.addEdge("build",       END);
+        graph.addEdge("build",       "saveVersion");
+
         graph.addEdge("reject",      END);
-//        graph.addEdge("saveVersion", END);
+        graph.addEdge("saveVersion", END);
         graph.addEdge("fail",        END);
 
         // ── 编译 ────────────────────────────────────────────────────

@@ -54,14 +54,17 @@ public class FileStorageService {
      * 写入版本代码到文件系统
      * @param userId 用户ID
      * @param appId 应用ID
-     * @param versionNumber 版本号
      * @param filesJson 代码文件JSON，格式：{"files":[{"path":"src/App.jsx","content":"..."}]}
      * @return 版本目录的绝对路径
      * @throws RuntimeException 写入失败时抛出
      */
-    public String writeVersion(Long userId, Long appId, int versionNumber, String filesJson) {
-        Path versionDir = getVersionDir(userId, appId, versionNumber);
+    public String writeVersion(Long userId, Long appId, String filesJson) {
+        Path versionDir = getVersionDir(userId, appId);
         try {
+            // 如果目录已存在，先删除旧文件
+            if (Files.exists(versionDir)) {
+                deleteVersion(versionDir.toString());
+            }
             Files.createDirectories(versionDir);
             JsonNode root = objectMapper.readTree(filesJson);
             JsonNode filesNode = root.get("files");
@@ -181,10 +184,10 @@ public class FileStorageService {
     }
 
     /**
-     * 获取版本目录路径
+     * 获取版本目录路径（每个 appId 对应一个固定目录）
      */
-    private Path getVersionDir(Long userId, Long appId, int versionNumber) {
-        return rootPath.resolve(userId.toString()).resolve(appId.toString()).resolve("v" + versionNumber).normalize();
+    private Path getVersionDir(Long userId, Long appId) {
+        return rootPath.resolve(userId.toString()).resolve(appId.toString()).normalize();
     }
 
     /**

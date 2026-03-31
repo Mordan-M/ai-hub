@@ -30,10 +30,11 @@ public class ParseIntentNode implements NodeAction<WorkflowState> {
     @Override
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
+        String appId = ctx.getAppId();
         String userPrompt = buildUserPrompt(ctx);
 
         try {
-            String jsonResult = lowCodeGenerateAiService.parseIntent(userPrompt).trim();
+            String jsonResult = lowCodeGenerateAiService.parseIntent(appId, userPrompt).trim();
             // 解析 JSON 为 POJO
             ParsedIntent parsedIntent = objectMapper.readValue(jsonResult, ParsedIntent.class);
             ctx.setParsedIntent(parsedIntent);
@@ -68,7 +69,8 @@ public class ParseIntentNode implements NodeAction<WorkflowState> {
         }
 
         // 迭代标记（可选）
-        if (hasText(ctx.getParentCodeSnapshot())) {
+        // appId 不为空表示已有项目，这是迭代修改
+        if (hasText(ctx.getAppId())) {
             appendSection(sb, "迭代说明", "此次为迭代修改，用户是在已有版本基础上调整，请将 isIteration 设为 true。");
         }
 
