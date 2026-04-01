@@ -8,24 +8,22 @@ import lombok.Getter;
  * 生成任务状态枚举
  */
 @Getter
-public enum TaskStatus implements IEnum<String> {
+public enum TaskStatus implements IEnum<Integer> {
 
-    PENDING("PENDING", "等待中"),
-    RUNNING("RUNNING", "执行中"),
-    SUCCESS("SUCCESS", "成功"),
-    FAILED("FAILED", "失败");
+    PENDING("等待中"),
+    RUNNING("执行中"),
+    SUCCESS("成功"),
+    FAILED("失败");
 
     @JsonValue
-    private final String value;
     private final String desc;
 
-    TaskStatus(String value, String desc) {
-        this.value = value;
+    TaskStatus(String desc) {
         this.desc = desc;
     }
 
     @Override
-    public String getValue() {
-        return value;
+    public Integer getValue() {
+        return this.ordinal();
     }
 }

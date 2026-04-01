@@ -28,7 +28,7 @@ public class FileModifyTool extends BaseTool {
             String oldContent,
             @P("替换后的新内容")
             String newContent,
-            @ToolMemoryId Long appId
+            @ToolMemoryId String appId
     ) {
         try {
             Path projectRoot = CurrentBuildContext.getProjectRoot(appId);

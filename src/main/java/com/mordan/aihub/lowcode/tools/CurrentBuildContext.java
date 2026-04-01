@@ -48,4 +48,8 @@ public class CurrentBuildContext {
         String dirName = AppConstant.CODE_OUTPUT_PREFIX + prefix;
         return Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, dirName);
     }
+
+    public static Path getProjectRoot(String appId) {
+        return getProjectRoot(Long.parseLong(appId));
+    }
 }

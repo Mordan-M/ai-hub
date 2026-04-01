@@ -39,7 +39,6 @@ public class GenerationTask {
     private Long parentVersionId;
 
     /** 任务状态 */
-    @TableField(typeHandler = org.apache.ibatis.type.EnumTypeHandler.class)
     private TaskStatus status;
 
     /** 已重试次数 */

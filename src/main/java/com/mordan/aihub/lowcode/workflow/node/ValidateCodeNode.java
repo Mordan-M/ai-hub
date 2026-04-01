@@ -128,10 +128,11 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
         List<CodeFile> files = generatedCode.getFiles();
         Map<String, String> fileMap = buildFileMap(files);
 
-        checkRequiredFiles(fileMap, errors);
+        boolean isIterative = hasText(ctx.getAppId()) && hasText(ctx.getExistingProjectSummary());
+        checkRequiredFiles(fileMap, errors, isIterative);
         checkFileContents(files, errors);
-        checkVueRouterRegistration(fileMap, errors);
-        checkApiIntegration(ctx, files, errors);
+        checkVueRouterRegistration(fileMap, errors, isIterative);
+        checkApiIntegration(ctx, files, errors, isIterative);
     }
 
     /** 构建 path → content 的 Map，便于快速查找 */
@@ -146,11 +147,13 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
     }
 
     /** 检查必要文件是否全部存在 */
-    private void checkRequiredFiles(Map<String, String> fileMap, List<String> errors) {
+    private void checkRequiredFiles(Map<String, String> fileMap, List<String> errors, boolean isIterative) {
         for (String required : REQUIRED_FILES) {
-            if (!fileMap.containsKey(required)) {
+            if (!fileMap.containsKey(required) && !isIterative) {
+                // 全新项目：必须所有必需文件都存在
                 errors.add("缺少必要文件：" + required);
             }
+            // 迭代场景：只修改部分文件，不强制所有必需文件都在本次输出中
         }
     }
 
@@ -212,20 +215,33 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
      * Vue Router 使用检查：
      * 若项目包含 src/router/index.js，则 src/main.js 必须调用 app.use(router)
      */
-    private void checkVueRouterRegistration(Map<String, String> fileMap, List<String> errors) {
-        boolean hasRouter = fileMap.containsKey("src/router/index.js");
-        if (!hasRouter) return;
+    private void checkVueRouterRegistration(Map<String, String> fileMap, List<String> errors, boolean isIterative) {
+        boolean hasRouterInCurrentOutput = fileMap.containsKey("src/router/index.js");
+        if (!hasRouterInCurrentOutput) {
+            // 全新项目：如果需要 router 必须输出 router 文件
+            // 迭代场景：router 文件未修改，不输出也没关系，跳过检查
+            return;
+        }
 
         String mainJs = fileMap.get("src/main.js");
-        if (mainJs == null || !mainJs.contains("use(router)")) {
+        if (mainJs == null && !isIterative) {
+            errors.add("src/main.js：项目包含 Vue Router 但未找到 src/main.js");
+            return;
+        }
+        if (mainJs != null && !mainJs.contains("use(router)")) {
             errors.add("src/main.js：项目包含 Vue Router 但未调用 app.use(router)");
         }
+        // 迭代场景：main.js 不在当前输出中表示没修改，不检查
     }
 
     /** 有 API 文档时，必须包含接口调用代码 */
     private void checkApiIntegration(GenerationWorkflowContext ctx,
                                       List<CodeFile> files,
-                                      List<String> errors) {
+                                      List<String> errors,
+                                     boolean isIterative) {
+        if (isIterative) {
+            return;
+        }
         if (!hasText(ctx.getApiDocText())) return;
 
         boolean foundApiCall = files.stream()

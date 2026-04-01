@@ -23,7 +23,7 @@ public class FileDeleteTool extends BaseTool {
     public String deleteFile(
             @P("文件的相对路径")
             String relativeFilePath,
-            @ToolMemoryId Long appId
+            @ToolMemoryId String appId
     ) {
         try {
             Path projectRoot = CurrentBuildContext.getProjectRoot(appId);

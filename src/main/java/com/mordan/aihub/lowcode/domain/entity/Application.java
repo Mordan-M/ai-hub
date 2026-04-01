@@ -32,7 +32,6 @@ public class Application {
     private String description;
 
     /** 应用状态 */
-    @TableField(typeHandler = org.apache.ibatis.type.EnumTypeHandler.class)
     private AppStatus status;
 
     /** 预览缩略图地址 */

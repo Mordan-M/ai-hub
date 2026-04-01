@@ -41,7 +41,7 @@ public class FileDirReadTool extends BaseTool {
     public String readDir(
             @P("目录的相对路径，为空则读取整个项目结构")
             String relativeDirPath,
-            @ToolMemoryId Long appId
+            @ToolMemoryId String appId
     ) {
         try {
             if (relativeDirPath == null) {

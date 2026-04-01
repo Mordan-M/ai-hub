@@ -31,7 +31,6 @@ public class ConversationMessage {
     private Integer seq;
 
     /** 消息角色 */
-    @TableField(typeHandler = org.apache.ibatis.type.EnumTypeHandler.class)
     private MessageRole role;
 
     /** 消息内容（纯文本，用户输入或AI回复） */

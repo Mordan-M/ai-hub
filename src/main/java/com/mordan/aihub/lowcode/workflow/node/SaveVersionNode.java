@@ -94,8 +94,8 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
         generatedVersionMapper.insert(version);
 
         // 设置访问地址并更新记录
-        String previewUrl = "/lowcode/preview/" + appId;
-        String downloadUrl = "/lowcode/preview/" + appId + "/download";
+        String previewUrl = "/lowcode/preview/" + buildDirPrefix;
+        String downloadUrl = "/lowcode/preview/" + buildDirPrefix + "/download";
         version.setPreviewUrl(previewUrl);
         version.setDownloadUrl(downloadUrl);
         generatedVersionMapper.updateById(version);
