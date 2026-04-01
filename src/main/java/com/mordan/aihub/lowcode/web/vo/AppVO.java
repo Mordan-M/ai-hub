@@ -29,9 +29,6 @@ public class AppVO {
     /** 预览缩略图地址 */
     private String thumbnailUrl;
 
-    /** 最新版本ID */
-    private Long latestVersionId;
-
     /** 创建时间戳 */
     private Long createdAt;
 

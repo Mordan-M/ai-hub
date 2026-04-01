@@ -9,11 +9,13 @@ CREATE TABLE IF NOT EXISTS `application` (
     `description`   TEXT COMMENT '应用描述',
     `status`        TINYINT(4) NOT NULL DEFAULT 0,
     `thumbnail_url` VARCHAR(500) COMMENT '预览缩略图地址',
-    `latest_version_id` BIGINT DEFAULT NULL COMMENT '最新版本ID',
     `created_at`    BIGINT(20) NOT NULL DEFAULT 0 COMMENT '创建时间戳（毫秒）',
     `updated_at`    BIGINT(20) NOT NULL DEFAULT 0 COMMENT '更新时间戳（毫秒）',
     INDEX `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='低代码应用表';
+
+-- 移除版本概念后变更:
+-- ALTER TABLE `application` DROP COLUMN `latest_version_id`;
 
 -- 2. 生成任务表
 CREATE TABLE IF NOT EXISTS `generation_task` (
@@ -22,7 +24,6 @@ CREATE TABLE IF NOT EXISTS `generation_task` (
     `user_id`             BIGINT NOT NULL COMMENT '所属用户ID',
     `prompt`              TEXT NOT NULL COMMENT '用户输入提示词',
     `api_doc_text`        TEXT COMMENT '用户提供的API文档文本（可为空）',
-    `parent_version_id`   BIGINT DEFAULT NULL COMMENT '基于哪个版本迭代（首次为NULL）',
     `status`              TINYINT(4) NOT NULL DEFAULT 0,
     `retry_count`         INT NOT NULL DEFAULT 0 COMMENT '已重试次数',
     `max_retry`           INT NOT NULL DEFAULT 3 COMMENT '最大重试次数',
@@ -34,11 +35,14 @@ CREATE TABLE IF NOT EXISTS `generation_task` (
     INDEX `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='代码生成任务表';
 
--- 3. 生成版本表（每个应用对应一条记录，只保留最新代码）
-CREATE TABLE IF NOT EXISTS `generated_version` (
+-- 移除版本概念后变更:
+-- ALTER TABLE `generation_task` DROP COLUMN `parent_version_id`;
+
+-- 3. 生成记录表（每次生成都保留一条记录）
+CREATE TABLE IF NOT EXISTS `generated_record` (
     `id`                BIGINT AUTO_INCREMENT PRIMARY KEY,
     `app_id`            BIGINT NOT NULL COMMENT '所属应用ID',
-    `task_id`           BIGINT NOT NULL COMMENT '最后一次生成此应用代码的任务ID',
+    `task_id`           BIGINT NOT NULL COMMENT '对应生成任务ID',
     `file_prefix`       VARCHAR(20) COMMENT '项目文件存储前缀（随机生成，用于隔离不同构建）',
     `code_storage_path` VARCHAR(500) COMMENT '代码文件存储路径',
     `preview_url`       VARCHAR(500) COMMENT '预览/部署地址',
@@ -49,8 +53,8 @@ CREATE TABLE IF NOT EXISTS `generated_version` (
     `deploy_url`        VARCHAR(500) COMMENT '部署后访问URL（用户部署时写入）',
     `created_at`        BIGINT(20) NOT NULL DEFAULT 0 COMMENT '创建时间戳（毫秒）',
     `updated_at`        BIGINT(20) NOT NULL DEFAULT 0 COMMENT '更新时间戳（毫秒）',
-    UNIQUE KEY `uk_app_id` (`app_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='生成代码表（每个应用一条记录，只保留最新）';
+    INDEX `idx_app_id` (`app_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='生成代码记录表（每次生成保留一条历史记录）';
 
 -- 4. 对话消息表
 CREATE TABLE IF NOT EXISTS `conversation_message` (

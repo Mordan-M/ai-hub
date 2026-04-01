@@ -2,14 +2,12 @@ package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.constant.AppConstant;
-import com.mordan.aihub.lowcode.domain.entity.Application;
-import com.mordan.aihub.lowcode.domain.entity.GeneratedVersion;
+import com.mordan.aihub.lowcode.domain.entity.GeneratedRecord;
 import com.mordan.aihub.lowcode.domain.entity.GenerationTask;
 import com.mordan.aihub.lowcode.domain.enums.TaskStatus;
 import com.mordan.aihub.lowcode.domain.service.ConversationService;
 import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
-import com.mordan.aihub.lowcode.mapper.ApplicationMapper;
-import com.mordan.aihub.lowcode.mapper.GeneratedVersionMapper;
+import com.mordan.aihub.lowcode.mapper.GeneratedRecordMapper;
 import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
@@ -27,21 +25,14 @@ import java.util.Map;
 /**
  * 保存版本节点
  * 将通过校验的代码写入文件系统和数据库，推送完成事件，保存成功消息。
- *
- * 优化点：
- *   1. Long.parseLong 统一提取为工具方法，避免重复 try-catch
- *   2. app / task 的 null 检查前置，避免 NPE
- *   3. 各 I/O 操作独立 try-catch，部分失败不影响主流程
- *   4. previewUrl 统一使用 version.getId()，与原逻辑保持一致
+ * 保留所有生成记录，不再追踪最新版本概念。
  */
 @Slf4j
 @Component
-public class SaveVersionNode implements NodeAction<WorkflowState> {
+public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
 
     @Resource
-    private ApplicationMapper applicationMapper;
-    @Resource
-    private GeneratedVersionMapper generatedVersionMapper;
+    private GeneratedRecordMapper generatedVersionMapper;
     @Resource
     private GenerationTaskMapper generationTaskMapper;
     @Resource
@@ -82,7 +73,12 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
                 log.warn("Failed to serialize project summary", e);
             }
         }
-        GeneratedVersion version = GeneratedVersion.builder()
+
+        // 设置访问地址并更新记录
+        String previewUrl = "/lowcode/preview/" + buildDirPrefix;
+        String downloadUrl = "/lowcode/preview/" + buildDirPrefix + "/download";
+
+        GeneratedRecord version = GeneratedRecord.builder()
                 .appId(appId)
                 .taskId(taskId)
                 .filePrefix(buildDirPrefix)
@@ -90,20 +86,12 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
                 .fileSize(totalSize)
                 .promptSnapshot(ctx.getUserPrompt())
                 .projectSummary(projectSummaryJson)
+                .previewUrl(previewUrl)
+                .downloadUrl(downloadUrl)
                 .build();
         generatedVersionMapper.insert(version);
 
-        // 设置访问地址并更新记录
-        String previewUrl = "/lowcode/preview/" + buildDirPrefix;
-        String downloadUrl = "/lowcode/preview/" + buildDirPrefix + "/download";
-        version.setPreviewUrl(previewUrl);
-        version.setDownloadUrl(downloadUrl);
-        generatedVersionMapper.updateById(version);
-
-        // 5. 更新 Application 最新版本 ID
-        updateApplication(appId, version.getId());
-
-        // 6. 更新任务状态为成功
+        // 5. 更新任务状态为成功
         updateTaskSuccess(taskId);
 
         // 7. 更新上下文
@@ -119,8 +107,7 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
         // 10. 关闭 SSE 连接
         completeSse(ctx.getTaskId());
 
-        log.info("Code saved: appId={}, versionId={}, hasSummary={}",
-                appId, version.getId(), generatedCode.getSummary() != null);
+        log.info("Code saved: appId={}, hasSummary={}", appId, generatedCode.getSummary() != null);
         return WorkflowState.saveContext(ctx);
     }
 
@@ -132,8 +119,8 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
     private void deleteExistingVersion(Long appId) {
         try {
             generatedVersionMapper.delete(
-                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<GeneratedVersion>()
-                            .eq(GeneratedVersion::getAppId, appId)
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<GeneratedRecord>()
+                            .eq(GeneratedRecord::getAppId, appId)
             );
         } catch (Exception e) {
             log.warn("Failed to delete existing version for appId={}, {}", appId, e.getMessage());
@@ -152,21 +139,6 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
         } catch (IOException e) {
             log.warn("Failed to calculate total size for path={}", storagePath);
             return 0L;
-        }
-    }
-
-    private void updateApplication(Long appId, Long latestVersionId) {
-        try {
-            Application app = applicationMapper.selectById(appId);
-            if (app != null) {
-                app.setLatestVersionId(latestVersionId);
-                app.setUpdatedAt(System.currentTimeMillis());
-                applicationMapper.updateById(app);
-            } else {
-                log.warn("Application not found for appId={}", appId);
-            }
-        } catch (Exception e) {
-            log.error("Failed to update application latestVersionId, appId={}", appId, e);
         }
     }
 
@@ -199,7 +171,7 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
             conversationService.saveAssistantMessage(
                     userId, appId,
                     "代码生成完成",
-                    taskId, versionId
+                    taskId
             );
         } catch (Exception e) {
             log.error("Failed to save success message, taskId={}", taskId, e);

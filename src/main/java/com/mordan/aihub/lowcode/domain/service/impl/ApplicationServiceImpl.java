@@ -98,7 +98,6 @@ public class ApplicationServiceImpl extends ServiceImpl<ApplicationMapper, Appli
                 .description(app.getDescription())
                 .status(app.getStatus())
                 .thumbnailUrl(app.getThumbnailUrl())
-                .latestVersionId(app.getLatestVersionId())
                 .createdAt(app.getCreatedAt())
                 .updatedAt(app.getUpdatedAt())
                 .build();

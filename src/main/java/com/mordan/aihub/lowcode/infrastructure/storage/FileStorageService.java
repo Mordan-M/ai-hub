@@ -3,8 +3,6 @@ package com.mordan.aihub.lowcode.infrastructure.storage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.config.StorageProperties;
-import com.mordan.aihub.lowcode.domain.entity.GeneratedVersion;
-import com.mordan.aihub.lowcode.mapper.GeneratedVersionMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -29,8 +27,6 @@ public class FileStorageService {
 
     @Resource
     private StorageProperties storageProperties;
-    @Resource
-    private GeneratedVersionMapper generatedVersionMapper;
     @Resource
     private ObjectMapper objectMapper;
 
@@ -89,40 +85,6 @@ public class FileStorageService {
             log.error("Failed to write version files", e);
             throw new RuntimeException("Failed to write version files", e);
         }
-    }
-
-    /**
-     * 根据版本ID和相对路径解析文件路径
-     * @param versionId 版本ID
-     * @param relativePath 相对路径
-     * @return 解析后的完整路径，null表示版本不存在
-     */
-    public Path resolveFilePath(Long versionId, String relativePath) {
-        GeneratedVersion version = generatedVersionMapper.selectById(versionId);
-        if (version == null || version.getCodeStoragePath() == null) {
-            return null;
-        }
-        Path versionRoot = Paths.get(version.getCodeStoragePath()).toAbsolutePath().normalize();
-        Path resolved = versionRoot.resolve(relativePath).normalize();
-        // 路径穿越防护
-        if (!resolved.startsWith(versionRoot)) {
-            log.warn("Path traversal attempt detected: versionId={}, relativePath={}", versionId, relativePath);
-            return null;
-        }
-        return resolved;
-    }
-
-    /**
-     * 获取版本根目录
-     * @param versionId 版本ID
-     * @return 版本根目录Path，null表示版本不存在
-     */
-    public Path getVersionRoot(Long versionId) {
-        GeneratedVersion version = generatedVersionMapper.selectById(versionId);
-        if (version == null || version.getCodeStoragePath() == null) {
-            return null;
-        }
-        return Paths.get(version.getCodeStoragePath()).toAbsolutePath().normalize();
     }
 
     /**

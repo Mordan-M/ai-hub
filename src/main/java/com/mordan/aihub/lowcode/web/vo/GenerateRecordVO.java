@@ -1,5 +1,7 @@
 package com.mordan.aihub.lowcode.web.vo;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
+import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.Builder;
 import lombok.Data;
 
@@ -8,7 +10,7 @@ import lombok.Data;
  */
 @Data
 @Builder
-public class VersionVO {
+public class GenerateRecordVO {
 
     /** ID */
     private Long id;
@@ -33,4 +35,11 @@ public class VersionVO {
 
     /** 更新时间戳 */
     private Long updatedAt;
+
+    /** 代码文件存储路径 */
+    private String codeStoragePath;
+
+    /** 项目文件存储前缀（本次构建随机生成，用于隔离不同构建） */
+    private String filePrefix;
+
 }

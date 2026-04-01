@@ -34,10 +34,6 @@ public class GenerationTask {
     @TableField(updateStrategy = FieldStrategy.NEVER)
     private String apiDocText;
 
-    /** 基于哪个版本迭代（首次为NULL） */
-    @TableField(updateStrategy = FieldStrategy.NEVER)
-    private Long parentVersionId;
-
     /** 任务状态 */
     private TaskStatus status;
 

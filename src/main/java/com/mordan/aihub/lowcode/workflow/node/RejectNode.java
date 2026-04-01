@@ -98,8 +98,7 @@ public class RejectNode implements NodeAction<WorkflowState> {
                     parseLong(ctx.getUserId(), "userId"),
                     parseLong(ctx.getAppId(), "appId"),
                     "生成已拒绝：" + reason,
-                    taskIdLong,
-                    null
+                    taskIdLong
             );
         } catch (Exception e) {
             log.error("Failed to save rejected message to conversation, taskId={}", taskIdLong, e);

@@ -10,7 +10,7 @@ import com.mordan.aihub.lowcode.workflow.node.MarkFailedNode;
 import com.mordan.aihub.lowcode.workflow.node.ParseIntentNode;
 import com.mordan.aihub.lowcode.workflow.node.RejectNode;
 import com.mordan.aihub.lowcode.workflow.node.RepairCodeNode;
-import com.mordan.aihub.lowcode.workflow.node.SaveVersionNode;
+import com.mordan.aihub.lowcode.workflow.node.SaveGenerateRecordNode;
 import com.mordan.aihub.lowcode.workflow.node.ValidateCodeNode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.IntentCheckResult;
@@ -62,7 +62,7 @@ public class CodeGenerationWorkflow {
     @Resource private ValidateCodeNode validateCodeNode;
     @Resource private RepairCodeNode repairCodeNode;
     @Resource private BuildNode buildNode;
-    @Resource private SaveVersionNode saveVersionNode;
+    @Resource private SaveGenerateRecordNode saveVersionNode;
     @Resource private MarkFailedNode markFailedNode;
 //    @Resource private MemorySaver memorySaver;
     @Resource private GenerationProperties generationProperties;

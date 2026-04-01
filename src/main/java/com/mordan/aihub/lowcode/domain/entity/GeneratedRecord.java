@@ -13,8 +13,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("generated_version")
-public class GeneratedVersion {
+@TableName("generated_record")
+public class GeneratedRecord {
 
     /** ID */
     @TableId(type = IdType.AUTO)

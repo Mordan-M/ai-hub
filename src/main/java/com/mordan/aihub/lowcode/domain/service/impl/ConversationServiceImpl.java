@@ -3,12 +3,12 @@ package com.mordan.aihub.lowcode.domain.service.impl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.mordan.aihub.lowcode.domain.entity.ConversationMessage;
-import com.mordan.aihub.lowcode.domain.entity.GeneratedVersion;
 import com.mordan.aihub.lowcode.domain.enums.MessageRole;
-import com.mordan.aihub.lowcode.mapper.ConversationMessageMapper;
-import com.mordan.aihub.lowcode.mapper.GeneratedVersionMapper;
 import com.mordan.aihub.lowcode.domain.service.ApplicationService;
 import com.mordan.aihub.lowcode.domain.service.ConversationService;
+import com.mordan.aihub.lowcode.domain.service.GeneratedRecordService;
+import com.mordan.aihub.lowcode.mapper.ConversationMessageMapper;
+import com.mordan.aihub.lowcode.web.vo.GenerateRecordVO;
 import com.mordan.aihub.lowcode.web.vo.MessageVO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,8 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMessageMapp
         implements ConversationService {
 
     @Resource
-    private GeneratedVersionMapper generatedVersionMapper;
+    private GeneratedRecordService generatedVersionService;
+
     @Resource
     private ApplicationService applicationService;
 
@@ -48,8 +49,10 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMessageMapp
     }
 
     @Override
-    public MessageVO saveAssistantMessage(Long userId, Long appId, String content,
-                                          Long taskId, Long versionId) {
+    public MessageVO saveAssistantMessage(Long userId,
+                                          Long appId,
+                                          String content,
+                                          Long taskId) {
         // 鉴权：验证应用归属
         applicationService.getAppDetail(userId, appId);
 
@@ -70,12 +73,11 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMessageMapp
         save(message);
 
         String previewUrl = null;
-        if (versionId != null) {
-            GeneratedVersion version = generatedVersionMapper.selectById(versionId);
-            if (version != null) {
-                previewUrl = version.getPreviewUrl();
-            }
+        GenerateRecordVO version = generatedVersionService.getGeneratedRecord(appId);
+        if (version != null) {
+            previewUrl = version.getPreviewUrl();
         }
+
         return toVO(message, previewUrl);
     }
 

@@ -88,8 +88,7 @@ public class MarkFailedNode implements NodeAction<WorkflowState> {
                     parseLong(ctx.getUserId(), "userId"),
                     parseLong(ctx.getAppId(), "appId"),
                     "生成失败：" + failureReason,
-                    taskIdLong,
-                    null
+                    taskIdLong
             );
         } catch (Exception e) {
             log.error("Failed to save failure message to conversation, taskId={}", taskIdLong, e);

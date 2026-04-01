@@ -1,7 +1,12 @@
 package com.mordan.aihub.lowcode.web.controller;
 
-import com.mordan.aihub.lowcode.infrastructure.storage.FileStorageService;
-import com.mordan.aihub.lowcode.mapper.GeneratedVersionMapper;
+import com.mordan.aihub.auth.exception.ThrowUtils;
+import com.mordan.aihub.auth.service.UserService;
+import com.mordan.aihub.common.vo.ErrorCode;
+import com.mordan.aihub.lowcode.domain.entity.Application;
+import com.mordan.aihub.lowcode.domain.service.ApplicationService;
+import com.mordan.aihub.lowcode.domain.service.GeneratedRecordService;
+import com.mordan.aihub.lowcode.web.vo.GenerateRecordVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +28,13 @@ import java.io.IOException;
 public class PreviewController {
 
     @Resource
-    private FileStorageService fileStorageService;
+    private UserService userService;
+
     @Resource
-    private GeneratedVersionMapper generatedVersionMapper;
+    private ApplicationService applicationService;
+
+    @Resource
+    private GeneratedRecordService generatedRecordService;
 
     /**
      * 访问 /preview/{appId} 时自动跳转到 index.html
@@ -33,32 +42,15 @@ public class PreviewController {
     @GetMapping("/{appId}")
     public void redirectToIndex(@PathVariable String appId,
                                 HttpServletResponse response) throws IOException {
-        String url = "/lowcode/preview/lowcode-output-" + appId + "/dist/index.html";
-        response.sendRedirect(url);
+
+        Application app = applicationService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+
+        GenerateRecordVO generatedRecord = generatedRecordService.getGeneratedRecord(Long.valueOf(appId));
+        ThrowUtils.throwIf(generatedRecord == null, ErrorCode.NOT_FOUND_ERROR, "应用未生成代码");
+
+//        String url = "/lowcode/preview/lowcode-output-" + appId + "/dist/index.html";
+        response.sendRedirect(generatedRecord.getPreviewUrl());
     }
-//    /**
-//     * 下载版本 ZIP 包
-//     * 路径: /preview/{versionId}/download
-//     */
-//    @GetMapping("/{versionId}/download")
-//    public ResponseEntity<Resource> downloadVersion(@PathVariable Long versionId) {
-//        GeneratedVersion version = generatedVersionMapper.selectById(versionId);
-//        if (version == null || version.getCodeStoragePath() == null) {
-//            return ResponseEntity.notFound().build();
-//        }
-//
-//        try {
-//            ByteArrayResource zipResource = fileStorageService.packageAsZip(version.getCodeStoragePath());
-//            String filename = String.format("app-v%d.zip", version.getVersionNumber());
-//
-//            return ResponseEntity.ok()
-//                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-//                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-//                    .contentLength(zipResource.contentLength())
-//                    .body(zipResource);
-//        } catch (IOException e) {
-//            throw new RuntimeException("打包失败：" + e.getMessage(), e);
-//        }
-//    }
 
 }

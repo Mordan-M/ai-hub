@@ -38,10 +38,6 @@ public class Application {
     @TableField(updateStrategy = FieldStrategy.NEVER)
     private String thumbnailUrl;
 
-    /** 最新版本ID */
-    @TableField(updateStrategy = FieldStrategy.NEVER)
-    private Long latestVersionId;
-
     /** 创建时间戳（毫秒） */
     @TableField(fill = FieldFill.INSERT)
     private Long createdAt;

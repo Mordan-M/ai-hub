@@ -25,10 +25,9 @@ public interface ConversationService extends IService<ConversationMessage> {
      * @param appId 应用ID
      * @param content 消息内容
      * @param taskId 关联任务ID
-     * @param versionId 关联版本ID
      * @return 消息VO
      */
-    MessageVO saveAssistantMessage(Long userId, Long appId, String content, Long taskId, Long versionId);
+    MessageVO saveAssistantMessage(Long userId, Long appId, String content, Long taskId);
 
     /**
      * 查询应用对话历史

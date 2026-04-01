@@ -5,13 +5,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.config.GenerationProperties;
-import com.mordan.aihub.lowcode.domain.entity.GeneratedVersion;
+import com.mordan.aihub.lowcode.domain.entity.GeneratedRecord;
 import com.mordan.aihub.lowcode.domain.entity.GenerationTask;
 import com.mordan.aihub.lowcode.domain.enums.TaskStatus;
 import com.mordan.aihub.lowcode.domain.service.ApplicationService;
 import com.mordan.aihub.lowcode.domain.service.ConversationService;
 import com.mordan.aihub.lowcode.domain.service.GenerationTaskService;
-import com.mordan.aihub.lowcode.mapper.GeneratedVersionMapper;
+import com.mordan.aihub.lowcode.mapper.GeneratedRecordMapper;
 import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
 import com.mordan.aihub.lowcode.tools.CurrentBuildContext;
 import com.mordan.aihub.lowcode.web.request.GenerateRequest;
@@ -40,7 +40,7 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
     @Resource
     private ConversationService conversationService;
     @Resource
-    private GeneratedVersionMapper generatedVersionMapper;
+    private GeneratedRecordMapper generatedVersionMapper;
     @Resource
     private GenerationProperties generationProperties;
     @Resource
@@ -71,7 +71,6 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
                 .userId(userId)
                 .prompt(req.getPrompt())
                 .apiDocText(req.getApiDocText())
-                .parentVersionId(req.getBaseVersionId())
                 .status(TaskStatus.PENDING)
                 .retryCount(0)
                 .maxRetry(generationProperties.getMaxRetry())
@@ -83,9 +82,9 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
         // 5. 准备初始状态
         // 查询已有项目摘要（如果存在）
         String existingProjectSummary = null;
-        GeneratedVersion existingVersion = generatedVersionMapper.selectOne(
-                new LambdaQueryWrapper<GeneratedVersion>()
-                        .eq(GeneratedVersion::getAppId, appId)
+        GeneratedRecord existingVersion = generatedVersionMapper.selectOne(
+                new LambdaQueryWrapper<GeneratedRecord>()
+                        .eq(GeneratedRecord::getAppId, appId)
                         .last("LIMIT 1")
         );
         if (existingVersion != null) {
