@@ -111,4 +111,9 @@ public class GenerationWorkflowContext implements Serializable {
      * 已有项目的文件摘要（迭代修改时使用，来自上一次生成）
      */
     private String existingProjectSummary;
+
+    /**
+     * 本次构建目录前缀（随机生成，用于隔离不同构建）
+     */
+    private String buildDirPrefix;
 }

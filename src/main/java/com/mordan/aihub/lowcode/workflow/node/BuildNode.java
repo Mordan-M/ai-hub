@@ -42,12 +42,18 @@ public class BuildNode implements NodeAction<WorkflowState> {
 
         Path buildDir = null;
         try {
-            // 1. 创建构建目录
-            buildDir = createBuildDirectory(ctx.getAppId());
+            // 1. 获取构建目录前缀（已在任务提交时生成），创建构建目录
+            String buildDirPrefix = ctx.getBuildDirPrefix();
+            buildDir = createBuildDirectory(buildDirPrefix);
             log.info("Build starting, build directory: {}", buildDir);
 
-            // 2. 写入所有源码文件
-            writeSourceFiles(buildDir, generatedCode);
+            // 2. 判断是否是迭代修改已有项目
+            // 如果是迭代修改，文件已经通过工具直接写入构建目录，不需要重复写入源码
+            boolean isIteration = hasText(ctx.getExistingProjectSummary());
+            if (!isIteration) {
+                // 全新项目：写入所有源码文件
+                writeSourceFiles(buildDir, generatedCode);
+            }
 
             // 3. 使用 VueProjectBuilder 构建项目
             boolean buildSuccess = vueProjectBuilder.buildProject(buildDir.toString());
@@ -61,7 +67,7 @@ public class BuildNode implements NodeAction<WorkflowState> {
             // 4. 读取编译输出，更新到 GeneratedCode
             updateGeneratedCode(generatedCode, buildDir);
 
-            log.info("Frontend build completed successfully");
+            log.info("Frontend build completed successfully, prefix={}", buildDirPrefix);
 
         } catch (Exception e) {
             log.error("Build failed with exception", e);
@@ -77,15 +83,17 @@ public class BuildNode implements NodeAction<WorkflowState> {
 
     /**
      * 创建构建目录
+     * 每次生成使用随机前缀，隔离不同构建
      */
-    private Path createBuildDirectory(String appId) throws IOException {
-        String dirName = AppConstant.CODE_OUTPUT_PREFIX + appId;
+    private Path createBuildDirectory(String buildDirPrefix) throws IOException {
+        String dirName = AppConstant.CODE_OUTPUT_PREFIX + buildDirPrefix;
         Path basePath = Path.of(AppConstant.CODE_OUTPUT_ROOT_DIR);
-//        if (Objects.nonNull(generationProperties.getPersistOutputBasePath())) {
-//            basePath = Path.of(generationProperties.getPersistOutputBasePath());
-//        }
         Files.createDirectories(basePath);
-        return basePath.resolve(dirName);
+        Path projectDir = basePath.resolve(dirName);
+        if (!Files.exists(projectDir)) {
+            Files.createDirectories(projectDir);
+        }
+        return projectDir;
     }
 
     private void writeSourceFiles(Path buildDir, GeneratedCode generatedCode) throws IOException {
@@ -126,6 +134,10 @@ public class BuildNode implements NodeAction<WorkflowState> {
                         }
                     });
         }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
 }

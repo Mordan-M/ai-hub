@@ -1,13 +1,13 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.domain.entity.Application;
 import com.mordan.aihub.lowcode.domain.entity.GeneratedVersion;
 import com.mordan.aihub.lowcode.domain.entity.GenerationTask;
 import com.mordan.aihub.lowcode.domain.enums.TaskStatus;
 import com.mordan.aihub.lowcode.domain.service.ConversationService;
 import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
-import com.mordan.aihub.lowcode.infrastructure.storage.FileStorageService;
 import com.mordan.aihub.lowcode.mapper.ApplicationMapper;
 import com.mordan.aihub.lowcode.mapper.GeneratedVersionMapper;
 import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
@@ -45,8 +45,6 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
     @Resource
     private GenerationTaskMapper generationTaskMapper;
     @Resource
-    private FileStorageService fileStorageService;
-    @Resource
     private SseEmitterRegistry sseEmitterRegistry;
     @Resource
     private ConversationService conversationService;
@@ -65,17 +63,15 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
                 ? ctx.getGeneratedCode()
                 : ctx.getFinalCode();
 
-        // 1. 写入文件系统（每个 app 一个存储路径，覆盖更新）
-        String storagePath = writeToStorage(ctx, userId, appId, generatedCode);
-        if (storagePath == null) {
-            // writeToStorage 内部已设置 failureReason
-            return WorkflowState.saveContext(ctx);
-        }
+        // 代码已经在构建阶段写入文件系统，直接使用构建目录路径
+        String buildDirPrefix = ctx.getBuildDirPrefix();
+        String dirName = AppConstant.CODE_OUTPUT_PREFIX + buildDirPrefix;
+        String storagePath = Path.of(AppConstant.CODE_OUTPUT_ROOT_DIR, dirName).toString();
 
-        // 2. 计算文件总大小
+        // 计算文件总大小
         long totalSize = calculateTotalSize(storagePath);
 
-        // 3. 删除该应用旧记录，插入新记录（每个 appId 只保留最新一条）
+        // 删除该应用旧记录，插入新记录（每个 appId 只保留最新一条）
         deleteExistingVersion(appId);
         // 将结构化摘要序列化为 JSON 字符串保存到数据库
         String projectSummaryJson = null;
@@ -89,17 +85,17 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
         GeneratedVersion version = GeneratedVersion.builder()
                 .appId(appId)
                 .taskId(taskId)
+                .filePrefix(buildDirPrefix)
                 .codeStoragePath(storagePath)
                 .fileSize(totalSize)
-                .validationResult(null)
                 .promptSnapshot(ctx.getUserPrompt())
                 .projectSummary(projectSummaryJson)
                 .build();
         generatedVersionMapper.insert(version);
 
-        // 4. 设置访问地址并更新记录
-        String previewUrl = "/preview/" + version.getId();
-        String downloadUrl = "/preview/" + version.getId() + "/download";
+        // 设置访问地址并更新记录
+        String previewUrl = "/lowcode/preview/" + appId;
+        String downloadUrl = "/lowcode/preview/" + appId + "/download";
         version.setPreviewUrl(previewUrl);
         version.setDownloadUrl(downloadUrl);
         generatedVersionMapper.updateById(version);
@@ -141,21 +137,6 @@ public class SaveVersionNode implements NodeAction<WorkflowState> {
             );
         } catch (Exception e) {
             log.warn("Failed to delete existing version for appId={}, {}", appId, e.getMessage());
-        }
-    }
-
-    /** 将代码序列化后写入文件系统，返回存储路径；失败时设置 ctx 错误信息并返回 null */
-    private String writeToStorage(GenerationWorkflowContext ctx,
-                                  Long userId, Long appId,
-                                  GeneratedCode generatedCode) {
-        try {
-            String codeJson = objectMapper.writeValueAsString(generatedCode);
-            return fileStorageService.writeVersion(userId, appId, codeJson);
-        } catch (Exception e) {
-            log.error("Failed to write version files", e);
-            ctx.setSuccess(false);
-            ctx.setFailureReason("文件写入失败：" + e.getMessage());
-            return null;
         }
     }
 

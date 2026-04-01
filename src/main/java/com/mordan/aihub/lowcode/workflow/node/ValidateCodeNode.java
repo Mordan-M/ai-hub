@@ -1,7 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mordan.aihub.lowcode.ai.LowCodeStatelessAiService;
+import com.mordan.aihub.lowcode.ai.ValidateAiService;
 import com.mordan.aihub.lowcode.workflow.state.CodeFile;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
@@ -80,7 +80,7 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
     );
 
     @Resource
-    private LowCodeStatelessAiService lowCodeStatelessAiService;
+    private ValidateAiService lowCodeStatelessAiService;
 
     @Resource
     private ObjectMapper objectMapper;

@@ -1,7 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
+import com.mordan.aihub.lowcode.ai.RepairCodeAiService;
 import com.mordan.aihub.lowcode.workflow.state.CodeFile;
 import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
@@ -11,7 +11,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.NodeAction;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -38,7 +44,8 @@ import java.util.stream.Collectors;
 public class RepairCodeNode implements NodeAction<WorkflowState> {
 
     @Resource
-    private LowCodeGenerateAiService lowCodeGenerateAiService;
+    private RepairCodeAiService repairCodeAiService;
+
     @Resource
     private ObjectMapper objectMapper;
 
@@ -187,9 +194,9 @@ public class RepairCodeNode implements NodeAction<WorkflowState> {
     private GeneratedCode callRepairAi(String appId, String userPrompt, GeneratedCode fallback) {
         String rawResult;
         try {
-            rawResult = lowCodeGenerateAiService.repairCode(appId, userPrompt).trim();
+            rawResult = repairCodeAiService.repairCode(appId, userPrompt).trim();
         } catch (Exception e) {
-            log.error("LowCodeGenerateAiService repairCode call failed, keeping original", e);
+            log.error("LowCodeSimpleAiService repairCode call failed, keeping original", e);
             return fallback;
         }
 

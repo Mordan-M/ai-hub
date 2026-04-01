@@ -42,10 +42,6 @@ public class GeneratedVersion {
     @TableField(updateStrategy = FieldStrategy.NEVER)
     private Long fileSize;
 
-    /** 代码校验详情 */
-    @TableField(updateStrategy = FieldStrategy.NEVER)
-    private String validationResult;
-
     /** 生成时的完整提示词快照 */
     @TableField(updateStrategy = FieldStrategy.NEVER)
     private String promptSnapshot;
@@ -53,6 +49,14 @@ public class GeneratedVersion {
     /** 项目文件摘要（大模型返回，简要说明每个文件作用） */
     @TableField(updateStrategy = FieldStrategy.NEVER)
     private String projectSummary;
+
+    /** 项目文件存储前缀（本次构建随机生成，用于隔离不同构建） */
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private String filePrefix;
+
+    /** 部署后访问 URL（用户部署时写入） */
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private String deployUrl;
 
     /** 创建时间戳（毫秒） */
     @TableField(fill = FieldFill.INSERT)

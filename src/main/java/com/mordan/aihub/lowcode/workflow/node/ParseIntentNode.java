@@ -1,7 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
+import com.mordan.aihub.lowcode.ai.ParseIntentAiService;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.ParsedIntent;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
@@ -22,7 +22,7 @@ import java.util.Map;
 public class ParseIntentNode implements NodeAction<WorkflowState> {
 
     @Resource
-    private LowCodeGenerateAiService lowCodeGenerateAiService;
+    private ParseIntentAiService parseIntentAiService;
 
     @Resource
     private ObjectMapper objectMapper;
@@ -34,7 +34,7 @@ public class ParseIntentNode implements NodeAction<WorkflowState> {
         String userPrompt = buildUserPrompt(ctx);
 
         try {
-            String jsonResult = lowCodeGenerateAiService.parseIntent(appId, userPrompt).trim();
+            String jsonResult = parseIntentAiService.parseIntent(appId, userPrompt).trim();
             // 解析 JSON 为 POJO
             ParsedIntent parsedIntent = objectMapper.readValue(jsonResult, ParsedIntent.class);
             ctx.setParsedIntent(parsedIntent);
@@ -68,12 +68,15 @@ public class ParseIntentNode implements NodeAction<WorkflowState> {
             appendSection(sb, "API文档", ctx.getApiDocText());
         }
 
-        // 迭代标记（可选）
-        // appId 不为空表示已有项目，这是迭代修改
-        if (hasText(ctx.getAppId())) {
-            appendSection(sb, "迭代说明", "此次为迭代修改，用户是在已有版本基础上调整，请将 isIteration 设为 true。");
+        // 已有项目文件摘要（可选，迭代修改时存在）
+        if (hasText(ctx.getExistingProjectSummary())) {
+            appendSection(sb, "已有项目文件摘要",
+                    "这是一个已有项目，请根据用户需求在该项目基础上进行修改。" +
+                    "以下是该项目的文件结构摘要，请参考它来理解现有结构并进行修改：\n" +
+                    ctx.getExistingProjectSummary());
+            appendSection(sb, "迭代说明", "此次为迭代修改任务，请将 isIteration 设为 true。" +
+                    "修改时只改动用户需求中明确要求修改的部分，保持原有结构不变。");
         }
-
         return sb.toString();
     }
 

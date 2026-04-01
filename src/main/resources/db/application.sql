@@ -39,13 +39,14 @@ CREATE TABLE IF NOT EXISTS `generated_version` (
     `id`                BIGINT AUTO_INCREMENT PRIMARY KEY,
     `app_id`            BIGINT NOT NULL COMMENT '所属应用ID',
     `task_id`           BIGINT NOT NULL COMMENT '最后一次生成此应用代码的任务ID',
+    `file_prefix`       VARCHAR(20) COMMENT '项目文件存储前缀（随机生成，用于隔离不同构建）',
     `code_storage_path` VARCHAR(500) COMMENT '代码文件存储路径',
     `preview_url`       VARCHAR(500) COMMENT '预览/部署地址',
     `download_url`      VARCHAR(500) COMMENT '下载地址',
     `file_size`         BIGINT COMMENT '代码包大小（字节）',
-    `validation_result` JSON COMMENT '代码校验详情',
     `prompt_snapshot`   TEXT COMMENT '生成时的完整提示词快照',
     `project_summary`   TEXT COMMENT '项目文件摘要（大模型返回，简要描述每个文件作用）',
+    `deploy_url`        VARCHAR(500) COMMENT '部署后访问URL（用户部署时写入）',
     `created_at`        BIGINT(20) NOT NULL DEFAULT 0 COMMENT '创建时间戳（毫秒）',
     `updated_at`        BIGINT(20) NOT NULL DEFAULT 0 COMMENT '更新时间戳（毫秒）',
     UNIQUE KEY `uk_app_id` (`app_id`)
@@ -53,14 +54,26 @@ CREATE TABLE IF NOT EXISTS `generated_version` (
 
 -- 4. 对话消息表
 CREATE TABLE IF NOT EXISTS `conversation_message` (
-    `id`          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    `app_id`      BIGINT NOT NULL COMMENT '所属应用ID',
-    `user_id`     BIGINT NOT NULL COMMENT '所属用户ID',
-    `role`        ENUM('USER','ASSISTANT') NOT NULL COMMENT '消息角色',
-    `content`     TEXT NOT NULL COMMENT '消息内容',
-    `task_id`     BIGINT DEFAULT NULL COMMENT '关联的生成任务ID',
-    `version_id`  BIGINT DEFAULT NULL COMMENT '关联的版本ID（成功时关联）',
-    `created_at`  BIGINT(20) NOT NULL DEFAULT 0 COMMENT '创建时间戳（毫秒）',
-    INDEX `idx_app_id` (`app_id`),
-    INDEX `idx_user_id` (`user_id`)
+    `id`           BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `app_id`       BIGINT NOT NULL COMMENT '所属应用ID',
+    `user_id`      BIGINT NOT NULL COMMENT '所属用户ID',
+    `seq`          INT NOT NULL COMMENT '消息顺序号',
+    `role`         ENUM('USER','ASSISTANT','TOOL') NOT NULL COMMENT '消息角色',
+    `content`      TEXT NOT NULL COMMENT '消息内容（纯文本，用户输入或AI回复）',
+    `task_id`      BIGINT DEFAULT NULL COMMENT '关联的生成任务ID',
+    `created_at`   BIGINT(20) NOT NULL DEFAULT 0 COMMENT '创建时间戳（毫秒）',
+    INDEX `idx_app_id_seq` (`app_id`, `seq`),
+    INDEX `idx_user_id`    (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='对话消息表';
+
+-- 5. LangChain4j 对话记忆表（专门存储AI对话记忆，与业务消息分离）
+CREATE TABLE IF NOT EXISTS `chat_memory` (
+    `id`           BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `memory_id`    VARCHAR(100) NOT NULL COMMENT '记忆ID（通常为 appId）',
+    `seq`          INT NOT NULL COMMENT '消息顺序号',
+    `role`         ENUM('USER','ASSISTANT','TOOL') NOT NULL COMMENT '消息角色',
+    `content`      TEXT NOT NULL COMMENT 'LangChain4j ChatMessage 序列化 JSON',
+    `content_text` TEXT DEFAULT NULL COMMENT '纯文本内容',
+    `created_at`   BIGINT(20) NOT NULL DEFAULT 0 COMMENT '创建时间戳（毫秒）',
+    INDEX `idx_memory_id_seq` (`memory_id`, `seq`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='LangChain4j 对话记忆表';

@@ -30,9 +30,16 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMessageMapp
         // 鉴权：验证应用归属
         applicationService.getAppDetail(userId, appId);
 
+        // 查询当前消息数量，计算下一个 seq
+        long currentCount = this.lambdaQuery()
+                .eq(ConversationMessage::getAppId, appId)
+                .count();
+        int nextSeq = (int) currentCount + 1;
+
         ConversationMessage message = ConversationMessage.builder()
                 .appId(appId)
                 .userId(userId)
+                .seq(nextSeq)
                 .role(MessageRole.USER)
                 .content(content)
                 .build();
@@ -46,13 +53,19 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMessageMapp
         // 鉴权：验证应用归属
         applicationService.getAppDetail(userId, appId);
 
+        // 查询当前消息数量，计算下一个 seq
+        long currentCount = this.lambdaQuery()
+                .eq(ConversationMessage::getAppId, appId)
+                .count();
+        int nextSeq = (int) currentCount + 1;
+
         ConversationMessage message = ConversationMessage.builder()
                 .appId(appId)
                 .userId(userId)
+                .seq(nextSeq)
                 .role(MessageRole.ASSISTANT)
                 .content(content)
                 .taskId(taskId)
-                .versionId(versionId)
                 .build();
         save(message);
 
@@ -79,14 +92,8 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMessageMapp
                 .page(pageRequest);
 
         return resultPage.convert(message -> {
-            String previewUrl = null;
-            if (message.getVersionId() != null) {
-                GeneratedVersion version = generatedVersionMapper.selectById(message.getVersionId());
-                if (version != null) {
-                    previewUrl = version.getPreviewUrl();
-                }
-            }
-            return toVO(message, previewUrl);
+            // 由于 versionId 不再存储，list 时无法获取 previewUrl，前端可通过任务详情获取
+            return toVO(message, null);
         });
     }
 
@@ -110,7 +117,6 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMessageMapp
                 .role(message.getRole())
                 .content(message.getContent())
                 .taskId(message.getTaskId())
-                .versionId(message.getVersionId())
                 .previewUrl(previewUrl)
                 .createdAt(message.getCreatedAt())
                 .build();

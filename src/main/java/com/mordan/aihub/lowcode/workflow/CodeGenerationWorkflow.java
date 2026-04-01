@@ -2,6 +2,7 @@ package com.mordan.aihub.lowcode.workflow;
 
 import cn.hutool.core.util.BooleanUtil;
 import com.mordan.aihub.lowcode.config.GenerationProperties;
+import com.mordan.aihub.lowcode.tools.CurrentBuildContext;
 import com.mordan.aihub.lowcode.workflow.node.BuildNode;
 import com.mordan.aihub.lowcode.workflow.node.GenerateCodeNode;
 import com.mordan.aihub.lowcode.workflow.node.IntentCheckNode;
@@ -134,7 +135,7 @@ public class CodeGenerationWorkflow {
 
     private String parseIntentRouter(WorkflowState workflowState) {
         GenerationWorkflowContext context = workflowState.context();
-        return context.getSuccess() ? "success" : "fail";
+        return BooleanUtil.isFalse(context.getSuccess()) ? "fail" : "success";
     }
 
     private String generateSuccess(WorkflowState workflowState) {
@@ -146,13 +147,16 @@ public class CodeGenerationWorkflow {
      * 异步提交生成任务。
      * 工作流整体异常时记录日志（各节点内部已有独立错误处理）。
      */
-    public void submit(Map<String, Object> initialState, Long taskId) {
+    public void submit(Map<String, Object> initialState, Long taskId, Long appId) {
         workflowExecutor.execute(() -> {
             try {
                 compiledGraph.invoke(initialState);
                 log.info("Workflow completed for taskId={}", taskId);
             } catch (Exception e) {
                 log.error("Workflow execution failed for taskId={}", taskId, e);
+            } finally {
+                // 任务完成，清除当前构建上下文缓存
+                CurrentBuildContext.remove(appId);
             }
         });
     }

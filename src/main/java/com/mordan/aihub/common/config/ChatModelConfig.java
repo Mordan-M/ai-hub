@@ -10,7 +10,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 import java.time.Duration;
-import java.util.List;
 
 /**
  * 低代码专用 ChatModel 配置
@@ -50,7 +49,7 @@ public class ChatModelConfig {
                 .logRequests(logRequests)
                 .logResponses(logResponses)
                 .timeout(timeout)
-                .listeners(List.of(chatModelListener))
+//                .listeners(List.of(chatModelListener))
                 .build();
     }
 }

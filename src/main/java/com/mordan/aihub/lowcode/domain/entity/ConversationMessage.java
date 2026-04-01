@@ -27,20 +27,19 @@ public class ConversationMessage {
     /** 所属用户ID */
     private Long userId;
 
+    /** 消息顺序号 */
+    private Integer seq;
+
     /** 消息角色 */
     @TableField(typeHandler = org.apache.ibatis.type.EnumTypeHandler.class)
     private MessageRole role;
 
-    /** 消息内容 */
+    /** 消息内容（纯文本，用户输入或AI回复） */
     private String content;
 
     /** 关联的生成任务ID */
     @TableField(updateStrategy = FieldStrategy.NEVER)
     private Long taskId;
-
-    /** 关联的版本ID（成功时关联） */
-    @TableField(updateStrategy = FieldStrategy.NEVER)
-    private Long versionId;
 
     /** 创建时间戳（毫秒） */
     @TableField(fill = FieldFill.INSERT)

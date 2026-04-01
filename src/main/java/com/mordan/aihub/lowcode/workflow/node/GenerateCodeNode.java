@@ -109,19 +109,23 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
 
         // ── 迭代模式：基于已有项目（每个 app 仅保留一份最新代码）──
         // appId 不为空表示已有项目，这是一次迭代修改
-        if (hasText(ctx.getAppId())) {
+        if (hasText(ctx.getAppId()) && hasText(ctx.getExistingProjectSummary())) {
             appendSection(sb, "迭代说明",
-                    "这是一次迭代修改任务。这是一个已有项目，请基于用户新需求进行最小化改动：\n" +
-                    "- 只修改需求中明确要求变更的部分\n" +
-                    "- 输出的 files 数组中只包含被修改的文件，未改动文件不输出\n" +
-                    "- 每个修改文件在顶部注释标注改动原因：// [迭代] 原因描述\n" +
-                    "- 禁止重构未涉及需求的代码结构");
+                    "这是一次迭代修改任务，你已经注册了文件操作工具，请按以下步骤工作：\n" +
+                    "1. 根据用户需求和已有项目文件摘要，判断哪些文件需要修改\n" +
+                    "2. **所有文件操作路径都是相对于项目根目录的相对路径**\n" +
+                    "3. 使用 readDir 工具读取项目目录确认结构，参数传入相对路径（根目录传空字符串或\".\"）\n" +
+                    "4. 使用 readFile 工具读取**只需要修改**的文件内容（禁止读取无关文件，节省上下文空间）\n" +
+                    "5. 分析代码后使用对应工具完成修改：\n" +
+                    "   - 修改现有文件 → modifyFile（传入相对路径）\n" +
+                    "   - 创建新文件 → writeFile（传入相对路径）\n" +
+                    "   - 删除文件 → deleteFile（传入相对路径）\n" +
+                    "6. 所有修改完成后，使用 exit 工具，然后输出最终 JSON 结果");
             // 注入已有项目摘要，帮助模型理解现有文件结构
-            if (hasText(ctx.getExistingProjectSummary())) {
-                appendSection(sb, "已有项目文件摘要", ctx.getExistingProjectSummary());
-            }
+            appendSection(sb, "已有项目文件摘要", ctx.getExistingProjectSummary());
         } else {
-            appendSection(sb, "迭代说明", "这是一次全新生成任务，请输出所有必须文件。");
+            // 全新项目
+            appendSection(sb, "迭代说明", "这是一次全新生成任务，请输出所有必须文件。不要调用工具，只允许输出文件内容");
         }
 
         // ── LLM 质检反馈（上轮 ValidateCodeNode 二级校验的建议，可选）──

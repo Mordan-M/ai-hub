@@ -11,7 +11,9 @@ import lombok.Getter;
 public enum MessageRole implements IEnum<String> {
 
     USER("USER", "用户"),
-    ASSISTANT("ASSISTANT", "助手");
+    ASSISTANT("ASSISTANT", "助手"),
+    TOOL("TOOL", "工具"),
+    SYSTEM("SYSTEM", "系统");
 
     @JsonValue
     private final String value;

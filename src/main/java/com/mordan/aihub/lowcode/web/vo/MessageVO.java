@@ -23,9 +23,6 @@ public class MessageVO {
     /** 关联任务ID */
     private Long taskId;
 
-    /** 关联版本ID */
-    private Long versionId;
-
     /** 预览地址（成功生成时才有） */
     private String previewUrl;
 

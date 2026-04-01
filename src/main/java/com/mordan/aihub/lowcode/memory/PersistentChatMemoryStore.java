@@ -1,45 +1,55 @@
-package com.mordan.aihub.lowcode.ai.memory;
+package com.mordan.aihub.lowcode.memory;
 
-import com.mordan.aihub.lowcode.domain.entity.ConversationMessage;
-import com.mordan.aihub.lowcode.entity.ConversationMessageEntity;
-import com.mordan.aihub.lowcode.mapper.ConversationMessageMapper;
-import com.mordan.aihub.lowcode.repository.ConversationMessageRepository;
-import dev.langchain4j.data.message.*;
-        import dev.langchain4j.store.memory.chat.ChatMemoryStore;
+import com.mordan.aihub.lowcode.domain.entity.ChatMemory;
+import com.mordan.aihub.lowcode.domain.enums.MessageRole;
+import com.mordan.aihub.lowcode.domain.service.ChatMemoryService;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.ChatMessageDeserializer;
+import dev.langchain4j.data.message.ChatMessageSerializer;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import jakarta.annotation.Resource;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaQuery;
+
 /**
  * 基于数据库的持久化对话记忆存储
- * 负责将 LangChain4j ChatMessage 持久化到 conversation_message 表
+ * 负责将 LangChain4j ChatMessage 持久化到 chat_memory 表
+ * 与业务对话消息（conversation_message）分离，避免写入策略冲突
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class PersistentChatMemoryStore implements ChatMemoryStore {
 
     @Resource
-    private ConversationMessageMapper conversationMessageMapper;
+    private ChatMemoryService chatMemoryService;
+
     // ----------------------------------------------------------------
     // ChatMemoryStore 接口实现
     // ----------------------------------------------------------------
 
     @Override
     public List<ChatMessage> getMessages(Object memoryId) {
-        String appId = memoryId.toString();
-        log.debug("Loading chat memory from DB, appId={}", appId);
+        String id = memoryId.toString();
+        log.debug("Loading chat memory from DB, memoryId={}", id);
 
-        List<ConversationMessage> entities =
-                conversationMessageMapper.findByAppIdOrderBySeqAsc(appId);
+        List<ChatMemory> entities = chatMemoryService.list(
+                lambdaQuery(ChatMemory.class)
+                        .eq(ChatMemory::getMemoryId, id)
+                        .orderByAsc(ChatMemory::getSeq)
+        );
 
         List<ChatMessage> messages = new ArrayList<>(entities.size());
-        for (ConversationMessage entity : entities) {
+        for (ChatMemory entity : entities) {
             try {
                 ChatMessage message = deserialize(entity);
                 if (message != null) {
@@ -52,30 +62,33 @@ public class PersistentChatMemoryStore implements ChatMemoryStore {
             }
         }
 
-        log.debug("Loaded {} messages from DB, appId={}", messages.size(), appId);
+        log.debug("Loaded {} messages from DB, memoryId={}", messages.size(), id);
         return messages;
     }
 
     @Override
+    @Transactional
     public void updateMessages(Object memoryId, List<ChatMessage> messages) {
-        String appId = memoryId.toString();
+        String id = memoryId.toString();
 
         // 过滤 SystemMessage：由 @SystemMessage 注解每次自动注入，无需持久化
         List<ChatMessage> toSave = messages.stream()
-                .filter(msg -> !(msg instanceof SystemMessage))
                 .toList();
 
-        log.debug("Updating chat memory, appId={}, total={}, toSave={}",
-                appId, messages.size(), toSave.size());
+        log.debug("Updating chat memory, memoryId={}, total={}, toSave={}",
+                id, messages.size(), toSave.size());
 
         // 全量覆盖：LangChain4j 每次传入完整列表
-        conversationMessageMapper.deleteByAppId(appId);
+        chatMemoryService.remove(
+                lambdaQuery(ChatMemory.class)
+                        .eq(ChatMemory::getMemoryId, id)
+        );
 
-        List<ConversationMessage> entities = new ArrayList<>(toSave.size());
+        List<ChatMemory> entities = new ArrayList<>(toSave.size());
         for (int i = 0; i < toSave.size(); i++) {
             ChatMessage msg = toSave.get(i);
-            entities.add(ConversationMessage.builder()
-                    .appId(Long.valueOf(appId))
+            entities.add(ChatMemory.builder()
+                    .memoryId(id)
                     .seq(i + 1)
                     .role(resolveRole(msg))
                     .content(serialize(msg))
@@ -84,15 +97,18 @@ public class PersistentChatMemoryStore implements ChatMemoryStore {
                     .build());
         }
 
-        conversationMessageMapper.saveAll(entities);
-        log.debug("Saved {} messages to DB, appId={}", entities.size(), appId);
+        chatMemoryService.saveBatch(entities);
+        log.debug("Saved {} messages to DB, memoryId={}", entities.size(), id);
     }
 
     @Override
     public void deleteMessages(Object memoryId) {
-        String appId = memoryId.toString();
-        log.info("Deleting all chat memory, appId={}", appId);
-        conversationMessageMapper.deleteByAppId(appId);
+        String id = memoryId.toString();
+        log.info("Deleting all chat memory, memoryId={}", id);
+        chatMemoryService.remove(
+                lambdaQuery(ChatMemory.class)
+                        .eq(ChatMemory::getMemoryId, id)
+        );
     }
 
     // ----------------------------------------------------------------
@@ -109,7 +125,7 @@ public class PersistentChatMemoryStore implements ChatMemoryStore {
     /**
      * 将数据库记录反序列化为 ChatMessage
      */
-    private ChatMessage deserialize(ConversationMessage entity) {
+    private ChatMessage deserialize(ChatMemory entity) {
         return ChatMessageDeserializer.messageFromJson(entity.getContent());
     }
 
@@ -118,16 +134,17 @@ public class PersistentChatMemoryStore implements ChatMemoryStore {
     // ----------------------------------------------------------------
 
     /**
-     * 解析消息角色字符串，用于写入 role 字段
+     * 解析消息角色，用于写入 role 字段
      */
-    private String resolveRole(ChatMessage message) {
+    private MessageRole resolveRole(ChatMessage message) {
         return switch (message) {
-            case UserMessage ignored             -> "USER";
-            case AiMessage ignored               -> "ASSISTANT";
-            case ToolExecutionResultMessage ignored -> "TOOL";
+            case UserMessage ignored             -> MessageRole.USER;
+            case AiMessage ignored               -> MessageRole.ASSISTANT;
+            case ToolExecutionResultMessage ignored -> MessageRole.TOOL;
+            case SystemMessage ignored -> MessageRole.SYSTEM;
             default -> {
                 log.warn("Unknown message type: {}", message.getClass().getSimpleName());
-                yield "UNKNOWN";
+                yield MessageRole.USER;
             }
         };
     }

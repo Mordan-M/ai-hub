@@ -1,5 +1,6 @@
 package com.mordan.aihub.lowcode.domain.service.impl;
 
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +13,7 @@ import com.mordan.aihub.lowcode.domain.service.ConversationService;
 import com.mordan.aihub.lowcode.domain.service.GenerationTaskService;
 import com.mordan.aihub.lowcode.mapper.GeneratedVersionMapper;
 import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
+import com.mordan.aihub.lowcode.tools.CurrentBuildContext;
 import com.mordan.aihub.lowcode.web.request.GenerateRequest;
 import com.mordan.aihub.lowcode.web.vo.TaskVO;
 import com.mordan.aihub.lowcode.workflow.CodeGenerationWorkflow;
@@ -90,6 +92,16 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
             existingProjectSummary = existingVersion.getProjectSummary();
         }
 
+        // 确定构建目录前缀：
+        // - 第一次构建：生成新的随机前缀
+        // - 非第一次构建（迭代）：复用已有前缀，保证同一项目使用同一目录
+        String buildDirPrefix;
+        if (existingVersion != null) {
+            buildDirPrefix = existingVersion.getFilePrefix();
+        } else {
+            buildDirPrefix = IdUtil.fastSimpleUUID().substring(0, 8);
+        }
+
         // 使用 GenerationWorkflowContext 封装所有初始状态
         GenerationWorkflowContext context = GenerationWorkflowContext.builder()
                 .appId(appId.toString())
@@ -98,7 +110,11 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
                 .userPrompt(req.getPrompt())
                 .apiDocText(req.getApiDocText() != null ? req.getApiDocText() : "")
                 .existingProjectSummary(existingProjectSummary)
+                .buildDirPrefix(buildDirPrefix)
                 .build();
+
+        // 设置当前构建上下文，供工具获取正确路径
+        CurrentBuildContext.setPrefix(appId, buildDirPrefix);
 
         Map<String, Object> initialState = Map.of(WorkflowState.CONTEXT_KEY, context);
 
@@ -106,8 +122,9 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
         task.setStatus(TaskStatus.RUNNING);
         updateById(task);
 
-        // 7. 异步提交工作流
-        codeGenerationWorkflow.submit(initialState, task.getId());
+        // 7. 异步提交工作流，完成后清除缓存
+        codeGenerationWorkflow.submit(initialState, task.getId(), appId);
+
 
         log.info("Generation task submitted: taskId={}, userId={}, appId={}", task.getId(), userId, appId);
         return toVO(task);
