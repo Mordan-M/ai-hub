@@ -1,5 +1,6 @@
 package com.mordan.aihub.lowcode.ai;
 
+import com.mordan.aihub.lowcode.workflow.state.QualityResult;
 import dev.langchain4j.service.UserMessage;
 
 /**
@@ -14,6 +15,6 @@ public interface ValidateAiService {
      * @return 问题列表，每行一个问题
      */
     @UserMessage(fromResource = "prompts/lowcode/validate-code-user-prompt.txt")
-    String validateCode(String generatedCode);
+    QualityResult validateCode(String generatedCode);
 
 }

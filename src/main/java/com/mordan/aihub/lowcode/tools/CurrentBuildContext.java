@@ -52,4 +52,5 @@ public class CurrentBuildContext {
     public static Path getProjectRoot(String appId) {
         return getProjectRoot(Long.parseLong(appId));
     }
+
 }

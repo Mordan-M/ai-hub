@@ -2,23 +2,27 @@ package com.mordan.aihub.lowcode.web.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.auth.service.UserService;
-import com.mordan.aihub.common.vo.BaseResponse;
 import com.mordan.aihub.common.utils.ResultUtils;
+import com.mordan.aihub.common.vo.BaseResponse;
 import com.mordan.aihub.lowcode.domain.entity.GenerationTask;
-import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
 import com.mordan.aihub.lowcode.domain.enums.TaskStatus;
 import com.mordan.aihub.lowcode.domain.service.GenerationTaskService;
 import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
+import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
 import com.mordan.aihub.lowcode.web.request.GenerateRequest;
 import com.mordan.aihub.lowcode.web.vo.TaskVO;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,12 +38,16 @@ public class GenerationController {
 
     @Resource
     private UserService userService;
+
     @Resource
     private GenerationTaskMapper generationTaskMapper;
+
     @Resource
     private GenerationTaskService generationTaskService;
+
     @Resource
     private SseEmitterRegistry sseEmitterRegistry;
+
     @Resource
     private ObjectMapper objectMapper;
 
@@ -109,13 +117,14 @@ public class GenerationController {
         return ResultUtils.success(taskVO);
     }
 
-    /**
-     * 获取应用下所有任务列表
-     */
-    @GetMapping("/tasks")
-    public BaseResponse<List<TaskVO>> listTasksByApp(@PathVariable Long appId) {
-        Long userId = userService.getCurrentUserId();
-        List<TaskVO> tasks = generationTaskService.listTasksByApp(userId, appId);
-        return ResultUtils.success(tasks);
-    }
+//    /**
+//     * 获取应用下所有任务列表
+//     */
+//    @GetMapping("/tasks")
+//    public BaseResponse<List<TaskVO>> listTasksByApp(@PathVariable Long appId) {
+//        Long userId = userService.getCurrentUserId();
+//        List<TaskVO> tasks = generationTaskService.listTasksByApp(userId, appId);
+//        return ResultUtils.success(tasks);
+//    }
+
 }

@@ -9,11 +9,12 @@ import com.mordan.aihub.lowcode.workflow.node.IntentCheckNode;
 import com.mordan.aihub.lowcode.workflow.node.MarkFailedNode;
 import com.mordan.aihub.lowcode.workflow.node.ParseIntentNode;
 import com.mordan.aihub.lowcode.workflow.node.RejectNode;
-import com.mordan.aihub.lowcode.workflow.node.RepairCodeNode;
+//import com.mordan.aihub.lowcode.workflow.node.RepairCodeNode;
 import com.mordan.aihub.lowcode.workflow.node.SaveGenerateRecordNode;
 import com.mordan.aihub.lowcode.workflow.node.ValidateCodeNode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.IntentCheckResult;
+import com.mordan.aihub.lowcode.workflow.state.QualityResult;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
@@ -60,7 +61,7 @@ public class CodeGenerationWorkflow {
     @Resource private ParseIntentNode parseIntentNode;
     @Resource private GenerateCodeNode generateCodeNode;
     @Resource private ValidateCodeNode validateCodeNode;
-    @Resource private RepairCodeNode repairCodeNode;
+//    @Resource private RepairCodeNode repairCodeNode;
     @Resource private BuildNode buildNode;
     @Resource private SaveGenerateRecordNode saveVersionNode;
     @Resource private MarkFailedNode markFailedNode;
@@ -82,7 +83,7 @@ public class CodeGenerationWorkflow {
         graph.addNode("parseIntent",  AsyncNodeAction.node_async(parseIntentNode));
         graph.addNode("generateCode", AsyncNodeAction.node_async(generateCodeNode));
         graph.addNode("validateCode", AsyncNodeAction.node_async(validateCodeNode));
-        graph.addNode("repair",       AsyncNodeAction.node_async(repairCodeNode));
+//        graph.addNode("repair",       AsyncNodeAction.node_async(repairCodeNode));
         graph.addNode("build",        AsyncNodeAction.node_async(buildNode));
         graph.addNode("saveVersion",  AsyncNodeAction.node_async(saveVersionNode));
         graph.addNode("fail",         AsyncNodeAction.node_async(markFailedNode));
@@ -111,12 +112,12 @@ public class CodeGenerationWorkflow {
         // 校验结果分支：通过→构建，有错→修复，超限→失败
         graph.addConditionalEdges("validateCode", edge_async(this::retryRouter), Map.of(
                 "save",   "build",
-                "repair", "repair",
-                "fail",   "fail"
+                "repair",   "generateCode",
+                "fail", "fail"
         ));
 
         // repair 完成后回到 validateCode 重新校验（循环收敛）
-        graph.addEdge("repair",      "validateCode");
+//        graph.addEdge("repair",      "validateCode");
 
         graph.addEdge("build",       "saveVersion");
 
@@ -194,26 +195,24 @@ public class CodeGenerationWorkflow {
      * 保留在上下文，由 GenerateCodeNode 在下一轮生成时作为质检反馈注入 prompt。
      */
     private String retryRouter(WorkflowState state) {
-        var ctx = state.context();
-        var errors = ctx.getValidationErrors();
 
-        // 规则校验通过，允许进入构建阶段
-        if (errors == null || errors.isEmpty()) {
-            log.debug("retryRouter: no errors, routing to save");
+        var context = state.context();
+        QualityResult qualityResult = context.getQualityResult();
+        // 如果质检失败，重新生成代码
+        if (qualityResult != null && BooleanUtil.isTrue(qualityResult.getIsValid())) {
             return "save";
         }
 
-        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
-        int maxRetry   = generationProperties.getMaxRetry();
+        log.error("代码质检失败，需要重新生成代码");
+        int retryCount = context.getRetryCount() == null ? 0 : context.getRetryCount();
+        int maxRetry = generationProperties.getMaxRetry();
 
         if (retryCount >= maxRetry) {
-            log.warn("retryRouter: retryCount={} >= maxRetry={}, routing to fail. errors={}",
-                    retryCount, maxRetry, errors);
+            log.warn("retryRouter: retryCount={} >= maxRetry={}, routing to fail. qualityResult={}",
+                    retryCount, maxRetry, qualityResult);
             return "fail";
         }
 
-        log.info("retryRouter: retryCount={}/{}, routing to repair. errors={}",
-                retryCount, maxRetry, errors);
         return "repair";
     }
 }

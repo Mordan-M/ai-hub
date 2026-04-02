@@ -17,4 +17,14 @@ public interface AppConstant {
      */
     String CODE_DEPLOY_ROOT_DIR = System.getProperty("user.dir") + "/tmp/code_deploy";
 
+    /**
+     * 预览地址前缀
+     */
+    String PREVIEW_URL_PREFIX = "/lowcode/preview/";
+
+    /**
+     * 下载地址前缀
+     */
+    String DOWNLOAD_URL_PREFIX = "/lowcode/preview/download/";
+
 }

@@ -5,9 +5,10 @@ import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
-import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
+import com.mordan.aihub.lowcode.workflow.state.GeneratedResult;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.ParsedIntent;
+import com.mordan.aihub.lowcode.workflow.state.QualityResult;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.bsc.langgraph4j.action.NodeAction;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 代码生成节点
@@ -59,19 +61,11 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         }
         log.debug("Generated userPrompt (length={}):\n{}", userPrompt.length(), userPrompt);
 
-
         // 2. 调用 AI 生成代码
-        GeneratedCode generatedCode = callAiAndParse(ctx, userPrompt);
+        GeneratedResult generatedResult = callAiAndParse(ctx, userPrompt);
 
         // 3. 更新上下文
-        ctx.setGeneratedCode(generatedCode);
-
-        // 生成成功时重置重试计数；失败时保留供路由判断
-        if (Boolean.TRUE.equals(ctx.getCodeSuccess())) {
-            ctx.setRetryCount(0);
-            // 成功生成后清除上轮 LLM 建议，避免重复注入
-            ctx.setLlmSuggestions(null);
-        }
+        ctx.setGeneratedResult(generatedResult);
 
         return WorkflowState.saveContext(ctx);
     }
@@ -120,23 +114,49 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
                     "   - 修改现有文件 → modifyFile（传入相对路径）\n" +
                     "   - 创建新文件 → writeFile（传入相对路径）\n" +
                     "   - 删除文件 → deleteFile（传入相对路径）\n" +
-                    "6. 所有修改完成后，使用 exit 工具，然后输出最终 JSON 结果");
+                    "6. 所有修改完成后，使用 exit 工具，然后输出最终 JSON 结果\n" +
+                    "   - JSON **只需要包含 summary 字段**（修改摘要）\n" +
+                    "   - **必须删除 files 字段**，不输出 files，因为所有修改已经通过工具写入磁盘");
             // 注入已有项目摘要，帮助模型理解现有文件结构
             appendSection(sb, "已有项目文件摘要", ctx.getExistingProjectSummary());
         } else {
             // 全新项目
-            appendSection(sb, "迭代说明", "这是一次全新生成任务，请输出所有必须文件。不要调用工具，只允许输出文件内容");
+            appendSection(sb, "迭代说明",
+                    "这是一次全新项目生成任务，你已经注册了文件操作工具，请按以下步骤工作：\n" +
+                    "1. 根据需求，创建所有必须的项目文件\n" +
+                    "2. **所有文件操作路径都是相对于项目根目录的相对路径**\n" +
+                    "3. 使用 writeFile 工具逐个创建所有需要的文件\n" +
+                    "4. 所有文件创建完成后，使用 exit 工具，然后输出最终 JSON 结果\n" +
+                    "   - JSON **只需要包含 summary 字段**（项目摘要）\n" +
+                    "   - **必须删除 files 字段**，不输出 files，因为所有文件已经通过工具写入磁盘");
         }
 
         // ── LLM 质检反馈（上轮 ValidateCodeNode 二级校验的建议，可选）──
         // 这是质检反馈闭环的关键：上轮发现的质量问题注入本轮生成，主动规避
-        if (hasText(ctx.getLlmSuggestions())) {
-            appendSection(sb, "上轮质检建议",
-                    "上一次生成存在以下质量问题，本次生成请特别注意避免：\n" +
-                    ctx.getLlmSuggestions());
+        if (Objects.nonNull(ctx.getQualityResult())) {
+            appendSection(sb, "", this.buildErrorFixPrompt(ctx.getQualityResult()));
         }
 
         return sb.toString();
+    }
+
+    /**
+     * 构造错误修复提示词
+     */
+    private String buildErrorFixPrompt(QualityResult qualityResult) {
+        StringBuilder errorInfo = new StringBuilder();
+        errorInfo.append("\n\n## 上次生成的代码存在以下问题，请修复：\n");
+        // 添加错误列表
+        qualityResult.getErrors().forEach(error ->
+                errorInfo.append("- ").append(error).append("\n"));
+        // 添加修复建议（如果有）
+        if (qualityResult.getSuggestions() != null && !qualityResult.getSuggestions().isEmpty()) {
+            errorInfo.append("\n## 修复建议：\n");
+            qualityResult.getSuggestions().forEach(suggestion ->
+                    errorInfo.append("- ").append(suggestion).append("\n"));
+        }
+        errorInfo.append("\n请根据上述问题和建议重新生成代码，确保修复所有提到的问题。");
+        return errorInfo.toString();
     }
 
     /**
@@ -153,7 +173,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
     // AI 调用 & JSON 解析
     // ─────────────────────────────────────────────────────────────
 
-    private GeneratedCode callAiAndParse(GenerationWorkflowContext ctx, String userPrompt) {
+    private GeneratedResult callAiAndParse(GenerationWorkflowContext ctx, String userPrompt) {
         ctx.setCodeSuccess(true);
         String rawResult;
         try {
@@ -169,7 +189,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
 
         // 第一次：直接解析
         try {
-            GeneratedCode result = objectMapper.readValue(rawResult, GeneratedCode.class);
+            GeneratedResult result = objectMapper.readValue(rawResult, GeneratedResult.class);
             log.info("JSON parse succeeded on first attempt");
             return result;
         } catch (Exception e) {
@@ -180,7 +200,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         String extracted = extractJsonFragment(rawResult);
         if (extracted != null) {
             try {
-                GeneratedCode result = objectMapper.readValue(extracted, GeneratedCode.class);
+                GeneratedResult result = objectMapper.readValue(extracted, GeneratedResult.class);
                 log.info("JSON parse succeeded after fragment extraction");
                 return result;
             } catch (Exception e) {
@@ -194,7 +214,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         String repaired = repairJsonString(rawResult);
         if (repaired != null) {
             try {
-                GeneratedCode result = objectMapper.readValue(repaired, GeneratedCode.class);
+                GeneratedResult result = objectMapper.readValue(repaired, GeneratedResult.class);
                 log.info("JSON parse succeeded after heuristic repair");
                 return result;
             } catch (Exception e) {
@@ -274,7 +294,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
     }
 
     /**
-     * 从原始文本提取 {"files":[...]} JSON 片段。
+     * 从原始文本提取 {"summary": ...} JSON 片段。
      * 处理模型输出 markdown 代码块或前后附加说明文字的情况。
      */
     private String extractJsonFragment(String text) {
@@ -283,8 +303,13 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
                 .replaceAll("(?s)```\\s*", "")
                 .trim();
 
-        int start = cleaned.indexOf("{\"files\"");
-        if (start < 0) start = cleaned.indexOf("{ \"files\"");
+        int start = cleaned.indexOf("{\"summary\"");
+        if (start < 0) start = cleaned.indexOf("{ \"summary\"");
+        if (start < 0) {
+            // fallback: look for files if summary not found (for backward compatibility)
+            start = cleaned.indexOf("{\"files\"");
+            if (start < 0) start = cleaned.indexOf("{ \"files\"");
+        }
         if (start < 0) return null;
 
         int depth = 0;
@@ -312,10 +337,10 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
     // 工具方法
     // ─────────────────────────────────────────────────────────────
 
-    private GeneratedCode failWith(GenerationWorkflowContext ctx, String reason) {
+    private GeneratedResult failWith(GenerationWorkflowContext ctx, String reason) {
         ctx.setCodeSuccess(false);
         ctx.setFailureReason(reason);
-        return GeneratedCode.builder().build();
+        return GeneratedResult.builder().build();
     }
 
     private boolean hasText(String value) {

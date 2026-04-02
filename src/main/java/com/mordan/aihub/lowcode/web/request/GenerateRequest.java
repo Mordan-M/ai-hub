@@ -19,6 +19,4 @@ public class GenerateRequest {
     @Size(max = 20000, message = "API文档最长20000个字符")
     private String apiDocText;
 
-    /** 基于哪个版本迭代，可为空 */
-    private Long baseVersionId;
 }

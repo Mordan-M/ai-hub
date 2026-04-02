@@ -18,7 +18,7 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GeneratedCode implements Serializable {
+public class GeneratedResult implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 7891234560123456789L;
@@ -27,11 +27,6 @@ public class GeneratedCode implements Serializable {
      * 项目文件摘要（结构化）
      */
     private ProjectSummary summary;
-
-    /**
-     * 文件列表
-     */
-    private List<CodeFile> files;
 
     /**
      * 项目文件摘要结构

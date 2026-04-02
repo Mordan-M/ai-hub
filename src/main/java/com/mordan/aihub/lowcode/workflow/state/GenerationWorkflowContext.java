@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.List;
 
 /**
  * 代码生成工作流上下文
@@ -63,24 +62,14 @@ public class GenerationWorkflowContext implements Serializable {
     private String parsedIntentJson;
 
     /**
-     * 生成的代码结果，包含多个文件
+     * 生成的代码结果
      */
-    private GeneratedCode generatedCode;
-
-    /**
-     * 校验错误列表
-     */
-    private List<String> validationErrors;
+    private GeneratedResult generatedResult;
 
     /**
      * 当前重试次数
      */
     private Integer retryCount;
-
-    /**
-     * 最终通过校验的代码
-     */
-    private GeneratedCode finalCode;
 
     /**
      * 是否成功
@@ -98,11 +87,6 @@ public class GenerationWorkflowContext implements Serializable {
     private String failureReason;
 
     /**
-     * LLM校验建议
-     */
-    private String llmSuggestions;
-
-    /**
      * 持久化构建输出的路径（开启 persist-build-output 时才有值）
      */
     private String persistedBuildPath;
@@ -116,4 +100,10 @@ public class GenerationWorkflowContext implements Serializable {
      * 本次构建目录前缀（随机生成，用于隔离不同构建）
      */
     private String buildDirPrefix;
+
+    /**
+     * 质量检查结果
+     */
+    private QualityResult qualityResult;
+
 }

@@ -9,7 +9,7 @@ import com.mordan.aihub.lowcode.domain.service.ConversationService;
 import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
 import com.mordan.aihub.lowcode.mapper.GeneratedRecordMapper;
 import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
-import com.mordan.aihub.lowcode.workflow.state.GeneratedCode;
+import com.mordan.aihub.lowcode.workflow.state.GeneratedResult;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.Resource;
@@ -50,9 +50,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
         Long taskId = parseLong(ctx.getTaskId(), "taskId");
 
         // 优先取 generatedCode，降级取 finalCode
-        GeneratedCode generatedCode = ctx.getGeneratedCode() != null
-                ? ctx.getGeneratedCode()
-                : ctx.getFinalCode();
+        GeneratedResult generatedResult = ctx.getGeneratedResult();
 
         // 代码已经在构建阶段写入文件系统，直接使用构建目录路径
         String buildDirPrefix = ctx.getBuildDirPrefix();
@@ -66,17 +64,17 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
         deleteExistingVersion(appId);
         // 将结构化摘要序列化为 JSON 字符串保存到数据库
         String projectSummaryJson = null;
-        if (generatedCode.getSummary() != null) {
+        if (generatedResult.getSummary() != null) {
             try {
-                projectSummaryJson = objectMapper.writeValueAsString(generatedCode.getSummary());
+                projectSummaryJson = objectMapper.writeValueAsString(generatedResult.getSummary());
             } catch (Exception e) {
                 log.warn("Failed to serialize project summary", e);
             }
         }
 
         // 设置访问地址并更新记录
-        String previewUrl = "/lowcode/preview/" + buildDirPrefix;
-        String downloadUrl = "/lowcode/preview/" + buildDirPrefix + "/download";
+        String previewUrl = AppConstant.PREVIEW_URL_PREFIX + appId;
+        String downloadUrl = AppConstant.DOWNLOAD_URL_PREFIX + appId;
 
         GeneratedRecord version = GeneratedRecord.builder()
                 .appId(appId)
@@ -95,19 +93,18 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
         updateTaskSuccess(taskId);
 
         // 7. 更新上下文
-        ctx.setFinalCode(generatedCode);
         ctx.setSuccess(true);
 
         // 8. 推送 SSE 完成事件
         sendSseComplete(ctx.getTaskId(), version.getId(), previewUrl);
 
         // 9. 保存成功消息到对话
-        saveSuccessMessage(userId, appId, taskId, version.getId());
+        saveSuccessMessage(userId, appId, taskId);
 
         // 10. 关闭 SSE 连接
         completeSse(ctx.getTaskId());
 
-        log.info("Code saved: appId={}, hasSummary={}", appId, generatedCode.getSummary() != null);
+        log.info("Code saved: appId={}, hasSummary={}", appId, generatedResult.getSummary() != null);
         return WorkflowState.saveContext(ctx);
     }
 
@@ -165,8 +162,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
         }
     }
 
-    private void saveSuccessMessage(Long userId, Long appId, Long taskId,
-                                    Long versionId) {
+    private void saveSuccessMessage(Long userId, Long appId, Long taskId) {
         try {
             conversationService.saveAssistantMessage(
                     userId, appId,
