@@ -1,11 +1,9 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.mordan.aihub.lowcode.ai.LowCodeGenerateAiService;
-import com.mordan.aihub.lowcode.workflow.state.GeneratedResult;
+import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.ParsedIntent;
 import com.mordan.aihub.lowcode.workflow.state.QualityResult;
@@ -41,6 +39,9 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
     @Resource
     private ObjectMapper objectMapper;
 
+    @Resource
+    private SseEmitterRegistry sseEmitterRegistry;
+
     // ─────────────────────────────────────────────────────────────
     // 主入口
     // ─────────────────────────────────────────────────────────────
@@ -62,10 +63,17 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         log.debug("Generated userPrompt (length={}):\n{}", userPrompt.length(), userPrompt);
 
         // 2. 调用 AI 生成代码
-        GeneratedResult generatedResult = callAiAndParse(ctx, userPrompt);
+        String generatedResult = callAiAndParse(ctx, userPrompt);
 
         // 3. 更新上下文
         ctx.setGeneratedResult(generatedResult);
+
+        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
+        if (Objects.nonNull(generatedResult)) {
+            sseEmitterRegistry.sendProgress(ctx.getTaskId(), "代码生成成功", generatedResult, retryCount);
+        } else {
+            sseEmitterRegistry.sendProgress(ctx.getTaskId(), "代码生成失败", ctx.getFailureReason(),  retryCount);
+        }
 
         return WorkflowState.saveContext(ctx);
     }
@@ -87,7 +95,7 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         String parsedIntentJson = parsedIntent != null
                 ? objectMapper.writeValueAsString(parsedIntent)
                 : ctx.getParsedIntentJson();
-        appendSection(sb, "需求结构", parsedIntentJson);
+        appendSection(sb, "需求描述", parsedIntentJson);
 
         // ── API 文档（可选）──
         if (hasText(ctx.getApiDocText())) {
@@ -101,35 +109,35 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
 //            appendSection(sb, "图片需求关键词", ctx.getImageNeeds());
 //        }
 
-        // ── 迭代模式：基于已有项目（每个 app 仅保留一份最新代码）──
-        // appId 不为空表示已有项目，这是一次迭代修改
-        if (hasText(ctx.getAppId()) && hasText(ctx.getExistingProjectSummary())) {
-            appendSection(sb, "迭代说明",
-                    "这是一次迭代修改任务，你已经注册了文件操作工具，请按以下步骤工作：\n" +
-                    "1. 根据用户需求和已有项目文件摘要，判断哪些文件需要修改\n" +
-                    "2. **所有文件操作路径都是相对于项目根目录的相对路径**\n" +
-                    "3. 使用 readDir 工具读取项目目录确认结构，参数传入相对路径（根目录传空字符串或\".\"）\n" +
-                    "4. 使用 readFile 工具读取**只需要修改**的文件内容（禁止读取无关文件，节省上下文空间）\n" +
-                    "5. 分析代码后使用对应工具完成修改：\n" +
-                    "   - 修改现有文件 → modifyFile（传入相对路径）\n" +
-                    "   - 创建新文件 → writeFile（传入相对路径）\n" +
-                    "   - 删除文件 → deleteFile（传入相对路径）\n" +
-                    "6. 所有修改完成后，使用 exit 工具，然后输出最终 JSON 结果\n" +
-                    "   - JSON **只需要包含 summary 字段**（修改摘要）\n" +
-                    "   - **必须删除 files 字段**，不输出 files，因为所有修改已经通过工具写入磁盘");
-            // 注入已有项目摘要，帮助模型理解现有文件结构
-            appendSection(sb, "已有项目文件摘要", ctx.getExistingProjectSummary());
-        } else {
-            // 全新项目
-            appendSection(sb, "迭代说明",
-                    "这是一次全新项目生成任务，你已经注册了文件操作工具，请按以下步骤工作：\n" +
-                    "1. 根据需求，创建所有必须的项目文件\n" +
-                    "2. **所有文件操作路径都是相对于项目根目录的相对路径**\n" +
-                    "3. 使用 writeFile 工具逐个创建所有需要的文件\n" +
-                    "4. 所有文件创建完成后，使用 exit 工具，然后输出最终 JSON 结果\n" +
-                    "   - JSON **只需要包含 summary 字段**（项目摘要）\n" +
-                    "   - **必须删除 files 字段**，不输出 files，因为所有文件已经通过工具写入磁盘");
-        }
+//        // ── 迭代模式：基于已有项目（每个 app 仅保留一份最新代码）──
+//        // appId 不为空表示已有项目，这是一次迭代修改
+//        if (hasText(ctx.getAppId()) && hasText(ctx.getExistingProjectSummary())) {
+//            appendSection(sb, "迭代说明",
+//                    "这是一次迭代修改任务，你已经注册了文件操作工具，请按以下步骤工作：\n" +
+//                    "1. 根据用户需求和已有项目文件摘要，判断哪些文件需要修改\n" +
+//                    "2. **所有文件操作路径都是相对于项目根目录的相对路径**\n" +
+//                    "3. 使用 readDir 工具读取项目目录确认结构，参数传入相对路径（根目录传空字符串或\".\"）\n" +
+//                    "4. 使用 readFile 工具读取**只需要修改**的文件内容（禁止读取无关文件，节省上下文空间）\n" +
+//                    "5. 分析代码后使用对应工具完成修改：\n" +
+//                    "   - 修改现有文件 → modifyFile（传入相对路径）\n" +
+//                    "   - 创建新文件 → writeFile（传入相对路径）\n" +
+//                    "   - 删除文件 → deleteFile（传入相对路径）\n" +
+//                    "6. 所有修改完成后，使用 exit 工具，然后输出最终 JSON 结果\n" +
+//                    "   - JSON **只需要包含 summary 字段**（修改摘要）\n" +
+//                    "   - **必须删除 files 字段**，不输出 files，因为所有修改已经通过工具写入磁盘");
+//            // 注入已有项目摘要，帮助模型理解现有文件结构
+//            appendSection(sb, "已有项目文件摘要", ctx.getExistingProjectSummary());
+//        } else {
+//            // 全新项目
+//            appendSection(sb, "迭代说明",
+//                    "这是一次全新项目生成任务，你已经注册了文件操作工具，请按以下步骤工作：\n" +
+//                    "1. 根据需求，创建所有必须的项目文件\n" +
+//                    "2. **所有文件操作路径都是相对于项目根目录的相对路径**\n" +
+//                    "3. 使用 writeFile 工具逐个创建所有需要的文件\n" +
+//                    "4. 所有文件创建完成后，使用 exit 工具，然后输出最终 JSON 结果\n" +
+//                    "   - JSON **只需要包含 summary 字段**（项目摘要）\n" +
+//                    "   - **必须删除 files 字段**，不输出 files，因为所有文件已经通过工具写入磁盘");
+//        }
 
         // ── LLM 质检反馈（上轮 ValidateCodeNode 二级校验的建议，可选）──
         // 这是质检反馈闭环的关键：上轮发现的质量问题注入本轮生成，主动规避
@@ -173,174 +181,32 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
     // AI 调用 & JSON 解析
     // ─────────────────────────────────────────────────────────────
 
-    private GeneratedResult callAiAndParse(GenerationWorkflowContext ctx, String userPrompt) {
+    private String callAiAndParse(GenerationWorkflowContext ctx, String userPrompt) {
         ctx.setCodeSuccess(true);
-        String rawResult;
+        String generatedResult;
         try {
-            rawResult = lowCodeGenerateAiService.generateCode(ctx.getAppId(), userPrompt);
-            if (!hasText(rawResult)) {
-                return failWith(ctx, "代码生成失败：AI 返回内容为空");
+            generatedResult = lowCodeGenerateAiService.generateCode(ctx.getAppId(), userPrompt);
+            if (!hasText(generatedResult)) {
+                failWith(ctx, "代码生成失败：AI 返回内容为空");
+                return null;
             }
-            rawResult = rawResult.trim();
+            generatedResult = generatedResult.trim();
         } catch (Exception e) {
             log.error("AI service call failed", e);
-            return failWith(ctx, "代码生成失败：" + e.getMessage());
-        }
-
-        // 第一次：直接解析
-        try {
-            GeneratedResult result = objectMapper.readValue(rawResult, GeneratedResult.class);
-            log.info("JSON parse succeeded on first attempt");
-            return result;
-        } catch (Exception e) {
-            log.warn("First parse failed: {}", e.getMessage());
-        }
-
-        // 第二次：剥离 markdown 代码块 + 提取 JSON 片段
-        String extracted = extractJsonFragment(rawResult);
-        if (extracted != null) {
-            try {
-                GeneratedResult result = objectMapper.readValue(extracted, GeneratedResult.class);
-                log.info("JSON parse succeeded after fragment extraction");
-                return result;
-            } catch (Exception e) {
-                log.warn("Second parse failed: {}", e.getMessage());
-                // 继续尝试第三次，把提取出的片段作为修复对象
-                rawResult = extracted;
-            }
-        }
-
-        // 第三次：启发式修复后重试
-        String repaired = repairJsonString(rawResult);
-        if (repaired != null) {
-            try {
-                GeneratedResult result = objectMapper.readValue(repaired, GeneratedResult.class);
-                log.info("JSON parse succeeded after heuristic repair");
-                return result;
-            } catch (Exception e) {
-                logParseErrorContext(rawResult, e);
-                log.error("Third parse failed after repair: {}", e.getMessage());
-            }
-        }
-
-        log.error("All JSON parse attempts failed. raw head={}",
-                rawResult.substring(0, Math.min(rawResult.length(), 300)));
-        return failWith(ctx, "代码生成格式解析失败，请重试");
-    }
-
-    /**
-     * 定位 JSON 解析失败的大致位置，输出上下文片段便于调试
-     */
-    private void logParseErrorContext(String raw, Exception e) {
-        String msg = e.getMessage();
-        // 从错误信息提取列号
-        java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("column: (\\d+)")
-                .matcher(msg);
-        if (m.find()) {
-            int col = Integer.parseInt(m.group(1));
-            int start = Math.max(0, col - 100);
-            int end   = Math.min(raw.length(), col + 100);
-            log.error("Parse error near column {}, context:\n...{}...",
-                    col, raw.substring(start, end));
-        }
-    }
-
-    /**
-     * 启发式 JSON 修复：处理模型最常见的几种格式错误。
-     *
-     * 修复策略：
-     * 1. 去除 content 字段值中的真实换行符（替换为 \n）
-     * 2. 修复 content 值中未转义的双引号（简单启发式，非完美）
-     * 3. 去除 JSON 结尾的多余逗号（trailing comma）
-     */
-    private String repairJsonString(String raw) {
-        if (raw == null) return null;
-
-        // 预处理：修复 content 字段值中常见的反斜杠问题
-        String preprocessed = preprocessContentFields(raw);
-
-        try {
-            ObjectMapper lenientMapper = JsonMapper.builder()
-                    .enable(JsonReadFeature.ALLOW_UNQUOTED_FIELD_NAMES)
-                    .enable(JsonReadFeature.ALLOW_SINGLE_QUOTES)
-                    .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
-                    .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
-                    .enable(JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER) // 关键：允许任意字符的反斜杠转义
-                    .build();
-
-            Object parsed = lenientMapper.readValue(preprocessed, Object.class);
-            return objectMapper.writeValueAsString(parsed);
-        } catch (Exception e) {
-            log.warn("Heuristic JSON repair failed: {}", e.getMessage());
+            failWith(ctx, "代码生成失败：" + e.getMessage());
             return null;
         }
-    }
 
-    /**
-     * 预处理：修复模型输出中常见的反斜杠问题。
-     * 核心问题：模型有时把 { "key": "val" } 输出为 {\"key\": \"val\"}（多加了反斜杠）
-     * 或者把反斜杠本身漏转义，如 \d 应该是 \\d
-     */
-    private String preprocessContentFields(String raw) {
-        // ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER 已经能处理大多数情况
-        // 这里只处理一种特殊情况：\" 出现在 JSON key 位置（不在字符串值内）
-        // 表现为: {"files":[{\"path\":\"xxx\"}]} 整个都被多加了反斜杠
-        if (raw.contains("{\\\"")) {
-            // 整体被多加了一层反斜杠转义，先 unescape 一次
-            return raw.replace("\\\"", "\"");
-        }
-        return raw;
-    }
-
-    /**
-     * 从原始文本提取 {"summary": ...} JSON 片段。
-     * 处理模型输出 markdown 代码块或前后附加说明文字的情况。
-     */
-    private String extractJsonFragment(String text) {
-        String cleaned = text
-                .replaceAll("(?s)```json\\s*", "")
-                .replaceAll("(?s)```\\s*", "")
-                .trim();
-
-        int start = cleaned.indexOf("{\"summary\"");
-        if (start < 0) start = cleaned.indexOf("{ \"summary\"");
-        if (start < 0) {
-            // fallback: look for files if summary not found (for backward compatibility)
-            start = cleaned.indexOf("{\"files\"");
-            if (start < 0) start = cleaned.indexOf("{ \"files\"");
-        }
-        if (start < 0) return null;
-
-        int depth = 0;
-        boolean inString = false;
-        boolean escape = false;
-        for (int i = start; i < cleaned.length(); i++) {
-            char c = cleaned.charAt(i);
-            if (escape)                { escape = false; continue; }
-            if (c == '\\' && inString) { escape = true;  continue; }
-            if (c == '"')              { inString = !inString; continue; }
-            if (!inString) {
-                if (c == '{') depth++;
-                else if (c == '}') {
-                    depth--;
-                    if (depth == 0) return cleaned.substring(start, i + 1);
-                }
-            }
-        }
-
-        int end = cleaned.lastIndexOf('}');
-        return (end > start) ? cleaned.substring(start, end + 1) : null;
+        return generatedResult;
     }
 
     // ─────────────────────────────────────────────────────────────
     // 工具方法
     // ─────────────────────────────────────────────────────────────
 
-    private GeneratedResult failWith(GenerationWorkflowContext ctx, String reason) {
+    private void failWith(GenerationWorkflowContext ctx, String reason) {
         ctx.setCodeSuccess(false);
         ctx.setFailureReason(reason);
-        return GeneratedResult.builder().build();
     }
 
     private boolean hasText(String value) {

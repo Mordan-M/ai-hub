@@ -21,12 +21,17 @@ import java.nio.file.StandardOpenOption;
 @Component
 public class FileWriteTool extends BaseTool {
 
-    @Tool("写入文件到指定路径")
+    @Tool("""
+            写入文件到指定路径。
+            【重要】content 参数必须是字符串。
+            - 如果写入普通文本文件（如 .js, .html, .css），直接传递文本内容。
+            - 如果写入 JSON 文件（如 package.json），请先将 JSON 对象序列化为字符串，例如：
+              '{"name": "my-app", "version": "1.0.0"}'
+            不要直接传递 JSON 对象，必须传递字符串。
+            """)
     public String writeFile(
-            @P("文件的相对路径")
-            String relativeFilePath,
-            @P("要写入文件的内容")
-            String content,
+            @P("文件的相对路径，例如：package.json、src/main.js") String relativeFilePath,
+            @P("文件的完整内容，必须是字符串") String content,
             @ToolMemoryId String appId
     ) {
         try {

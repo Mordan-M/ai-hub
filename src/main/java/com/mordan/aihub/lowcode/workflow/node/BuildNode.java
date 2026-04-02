@@ -2,7 +2,6 @@ package com.mordan.aihub.lowcode.workflow.node;
 
 import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.workflow.build.VueProjectBuilder;
-import com.mordan.aihub.lowcode.workflow.state.GeneratedResult;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.Resource;
@@ -32,9 +31,9 @@ public class BuildNode implements NodeAction<WorkflowState> {
     @Override
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
-        GeneratedResult generatedResult = ctx.getGeneratedResult();
+        String generatedResult = ctx.getGeneratedResult();
 
-        if (generatedResult == null || generatedResult.getSummary() == null) {
+        if (generatedResult == null) {
             log.warn("No generated code to build");
             return WorkflowState.saveContext(ctx);
         }

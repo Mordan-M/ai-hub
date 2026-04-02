@@ -19,7 +19,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- 统一管理版本号，方便升级 -->
-        <langchain4j.version>1.11.0-beta19</langchain4j.version>
+        <langchain4j.version>1.12.2-beta22</langchain4j.version>
         <langchain4j-dashscope.version>1.1.0-beta7</langchain4j-dashscope.version>
         <mybatis-plus.version>3.5.13</mybatis-plus.version>
         <druid.version>1.2.28</druid.version>

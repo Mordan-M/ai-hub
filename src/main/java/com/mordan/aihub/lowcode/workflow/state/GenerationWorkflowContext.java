@@ -64,12 +64,12 @@ public class GenerationWorkflowContext implements Serializable {
     /**
      * 生成的代码结果
      */
-    private GeneratedResult generatedResult;
+    private String generatedResult;
 
     /**
      * 当前重试次数
      */
-    private Integer retryCount;
+    private Integer retryCount = 0;
 
     /**
      * 是否成功

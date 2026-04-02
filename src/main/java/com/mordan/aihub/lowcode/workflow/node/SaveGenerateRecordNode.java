@@ -1,6 +1,5 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.domain.entity.GeneratedRecord;
 import com.mordan.aihub.lowcode.domain.entity.GenerationTask;
@@ -9,7 +8,6 @@ import com.mordan.aihub.lowcode.domain.service.ConversationService;
 import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
 import com.mordan.aihub.lowcode.mapper.GeneratedRecordMapper;
 import com.mordan.aihub.lowcode.mapper.GenerationTaskMapper;
-import com.mordan.aihub.lowcode.workflow.state.GeneratedResult;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
 import jakarta.annotation.Resource;
@@ -39,8 +37,6 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
     private SseEmitterRegistry sseEmitterRegistry;
     @Resource
     private ConversationService conversationService;
-    @Resource
-    private ObjectMapper objectMapper;
 
     @Override
     public Map<String, Object> apply(WorkflowState state) {
@@ -50,7 +46,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
         Long taskId = parseLong(ctx.getTaskId(), "taskId");
 
         // 优先取 generatedCode，降级取 finalCode
-        GeneratedResult generatedResult = ctx.getGeneratedResult();
+        String generatedResult = ctx.getGeneratedResult();
 
         // 代码已经在构建阶段写入文件系统，直接使用构建目录路径
         String buildDirPrefix = ctx.getBuildDirPrefix();
@@ -62,15 +58,15 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
 
         // 删除该应用旧记录，插入新记录（每个 appId 只保留最新一条）
         deleteExistingVersion(appId);
-        // 将结构化摘要序列化为 JSON 字符串保存到数据库
-        String projectSummaryJson = null;
-        if (generatedResult.getSummary() != null) {
-            try {
-                projectSummaryJson = objectMapper.writeValueAsString(generatedResult.getSummary());
-            } catch (Exception e) {
-                log.warn("Failed to serialize project summary", e);
-            }
-        }
+//        // 将结构化摘要序列化为 JSON 字符串保存到数据库
+//        String projectSummaryJson = null;
+//        if (generatedResult.getSummary() != null) {
+//            try {
+//                projectSummaryJson = objectMapper.writeValueAsString(generatedResult.getSummary());
+//            } catch (Exception e) {
+//                log.warn("Failed to serialize project summary", e);
+//            }
+//        }
 
         // 设置访问地址并更新记录
         String previewUrl = AppConstant.PREVIEW_URL_PREFIX + appId;
@@ -83,7 +79,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
                 .codeStoragePath(storagePath)
                 .fileSize(totalSize)
                 .promptSnapshot(ctx.getUserPrompt())
-                .projectSummary(projectSummaryJson)
+                .projectSummary(null)
                 .previewUrl(previewUrl)
                 .downloadUrl(downloadUrl)
                 .build();
@@ -104,7 +100,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
         // 10. 关闭 SSE 连接
         completeSse(ctx.getTaskId());
 
-        log.info("Code saved: appId={}, hasSummary={}", appId, generatedResult.getSummary() != null);
+        log.info("Code saved: appId={}", appId);
         return WorkflowState.saveContext(ctx);
     }
 
