@@ -1,8 +1,5 @@
 package com.mordan.aihub.lowcode.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.mordan.aihub.lowcode.ai.IntentCheckAiService;
@@ -12,11 +9,9 @@ import com.mordan.aihub.lowcode.ai.RepairCodeAiService;
 import com.mordan.aihub.lowcode.ai.ValidateAiService;
 import com.mordan.aihub.lowcode.memory.PersistentChatMemoryStore;
 import com.mordan.aihub.lowcode.tools.ToolManager;
-import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
@@ -39,13 +34,7 @@ public class LowCodeAiServiceFactory {
     private OpenAiChatModel lowCodeChatModel;
 
     @Resource
-    private StreamingChatModel streamingChatModel;
-
-    @Resource
     private ToolManager toolManager;
-
-    @Resource
-    private ObjectMapper objectMapper;
 
     @Bean
     public Cache<String, ChatMemory> sharedMemoryCache() {
@@ -113,29 +102,8 @@ public class LowCodeAiServiceFactory {
                         ToolExecutionResultMessage.from(toolExecutionRequest,
                                 "Error: there is no tool called " + toolExecutionRequest.name())
                 )
-                .maxSequentialToolsInvocations(20)  // 最多连续调用 20 次工具
+                .maxSequentialToolsInvocations(30)  // 最多连续调用 30 次工具
                 .build();
-    }
-
-    private void normalizeToolArguments(ToolExecutionRequest request) {
-        String arguments = request.arguments();
-        if (!"writeFile".equals(request.name()) && !"modifyFile".equals(request.name())) {
-            return;
-        }
-        try {
-            JsonNode root = objectMapper.readTree(arguments);
-            if (root instanceof ObjectNode objectNode && root.has("content")) {
-                JsonNode contentNode = root.get("content");
-                if (!contentNode.isTextual()) {
-                    String contentStr = objectMapper.writerWithDefaultPrettyPrinter()
-                            .writeValueAsString(contentNode);
-                    objectNode.put("content", contentStr);
-                }
-            }
-
-        } catch (Exception e) {
-            log.warn("normalizeToolArguments failed, use original. tool={}", request.name(), e);
-        }
     }
 
     /**
