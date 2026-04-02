@@ -21,5 +21,8 @@ public class StaticResourceConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/lowcode/preview/**")
                 .addResourceLocations("file:" + AppConstant.CODE_OUTPUT_ROOT_DIR + "/")
                 .setCacheControl(CacheControl.noCache());
+        registry.addResourceHandler("/lowcode/deploy/**")
+                .addResourceLocations("file:" + AppConstant.CODE_DEPLOY_ROOT_DIR + "/")
+                .setCacheControl(CacheControl.noCache());
     }
 }

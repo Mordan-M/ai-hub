@@ -4,6 +4,7 @@ import com.mordan.aihub.auth.exception.BusinessException;
 import com.mordan.aihub.auth.exception.ThrowUtils;
 import com.mordan.aihub.auth.service.UserService;
 import com.mordan.aihub.common.vo.ErrorCode;
+import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.domain.entity.Application;
 import com.mordan.aihub.lowcode.domain.service.ApplicationService;
 import com.mordan.aihub.lowcode.domain.service.GeneratedRecordService;
@@ -15,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -56,12 +58,12 @@ public class PreviewController {
         GenerateRecordVO generatedRecord = generatedRecordService.getGeneratedRecord(Long.valueOf(appId));
         ThrowUtils.throwIf(generatedRecord == null, ErrorCode.NOT_FOUND_ERROR, "应用未生成代码");
 
-        String url = "/lowcode/preview/lowcode-output-" + generatedRecord.getFilePrefix() + "/dist/index.html";
+        String url = "/lowcode/preview/" + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix() + "/dist/index.html";
         response.sendRedirect(url);
     }
 
 
-    @GetMapping("/download/{appId}")
+    @PostMapping("/download/{appId}")
     public void downloadAppCode(@PathVariable Long appId,
                                 HttpServletRequest request,
                                 HttpServletResponse response) {

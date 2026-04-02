@@ -1,12 +1,20 @@
 package com.mordan.aihub.lowcode.web.controller;
 
+import cn.hutool.core.io.FileUtil;
+import com.mordan.aihub.auth.exception.BusinessException;
+import com.mordan.aihub.auth.exception.ThrowUtils;
 import com.mordan.aihub.auth.service.UserService;
 import com.mordan.aihub.common.utils.ResultUtils;
 import com.mordan.aihub.common.vo.BaseResponse;
+import com.mordan.aihub.common.vo.ErrorCode;
+import com.mordan.aihub.lowcode.constant.AppConstant;
+import com.mordan.aihub.lowcode.domain.entity.Application;
 import com.mordan.aihub.lowcode.domain.service.ApplicationService;
+import com.mordan.aihub.lowcode.domain.service.GeneratedRecordService;
 import com.mordan.aihub.lowcode.web.request.CreateAppRequest;
 import com.mordan.aihub.lowcode.web.request.UpdateAppRequest;
 import com.mordan.aihub.lowcode.web.vo.AppVO;
+import com.mordan.aihub.lowcode.web.vo.GenerateRecordVO;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -18,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.File;
 import java.util.List;
 
 /**
@@ -32,6 +41,9 @@ public class AppController {
 
     @Resource
     private ApplicationService applicationService;
+
+    @Resource
+    private GeneratedRecordService generatedRecordService;
 
     /**
      * 创建应用
@@ -85,4 +97,40 @@ public class AppController {
         return ResultUtils.success(null);
     }
 
+    @PostMapping("/deploy/{appId}")
+    public BaseResponse<String> downloadAppCode(@PathVariable Long appId) {
+        // 1. 基础校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+
+        // 2. 查询应用信息
+        Application app = applicationService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+
+        GenerateRecordVO generatedRecord = generatedRecordService.getGeneratedRecord(appId);
+        ThrowUtils.throwIf(generatedRecord == null, ErrorCode.NOT_FOUND_ERROR, "应用未生成代码");
+
+        // 3. 权限校验：只有应用创建者可以部署代码
+        Long userId = userService.getCurrentUserId();
+        if (!app.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限部署");
+        }
+
+        // 4. 构建应用代码目录路径（生成目录，非部署目录）
+        String sourceDirPath = generatedRecord.getCodeStoragePath();
+
+        // 5. 检查代码目录是否存在
+        File sourceDir = new File(sourceDirPath);
+        ThrowUtils.throwIf(!sourceDir.exists() || !sourceDir.isDirectory(),
+                ErrorCode.NOT_FOUND_ERROR, "应用代码不存在，请先生成代码");
+
+        // 6. 复制文件到部署目录
+        String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix();
+        try {
+            FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用部署失败：" + e.getMessage());
+        }
+
+        return ResultUtils.success("/lowcode/deploy/" + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix() + "/dist/index.html");
+    }
 }
