@@ -188,6 +188,17 @@ export async function getProductList(params) {
 ---
 
 ## 输出规范
+重要：工具参数要求
+
+writeFile 工具包含两个参数：relativeFilePath（文件路径）和 content（文件内容）。
+
+content 参数必须是字符串。即使要写入 JSON 格式的文件（如 package.json），也必须先将 JSON 对象序列化为字符串再传递。
+
+✅ 正确示例：writeFile(relativeFilePath="package.json", content='{"name":"my-app","version":"1.0.0"}')
+
+❌ 错误示例：writeFile(relativeFilePath="package.json", content={"name":"my-app","version":"1.0.0"})
+
+对于普通文本文件（.js、.html、.css、.vue），直接传递文件内容字符串即可。
 
 新建项目和迭代修改均使用相同的输出方式：**只调用文件工具操作文件，完成后输出一句简短提示，不输出任何其他内容。**
 
@@ -195,7 +206,7 @@ export async function getProductList(params) {
 
 - **readDir**：读取项目目录结构
 - **readFile**：读取文件内容
-- **writeFile**：创建新文件或完全重写现有文件
+- **writeFile**：创建新文件或完全重写现有文件（注意：content 参数必须是字符串）
 - **modifyFile**：修改现有文件（用新内容替换旧内容）
 - **deleteFile**：删除不需要的文件
 - **exit**：所有文件操作完成后调用，标记工具调用阶段结束

@@ -153,19 +153,19 @@ public class LowCodeAiServiceFactory {
     private ChatMemory buildChatMemory(Object memoryId,
                                        PersistentChatMemoryStore chatMemoryStore,
                                        Cache<String, ChatMemory> sharedMemoryCache) {
-        return MessageWindowChatMemory.withMaxMessages(10);
-//
-//        String id = String.valueOf(memoryId);
-//        ChatMemory memory = sharedMemoryCache.getIfPresent(id);
-//        if (memory == null) {
-//            memory = MessageWindowChatMemory.builder()
-//                    .id(memoryId)
-//                    .maxMessages(50)
-//                    .chatMemoryStore(chatMemoryStore) // 关键：绑定持久化 store
-//                    .build();
-//            sharedMemoryCache.put(id, memory);
-//        }
-//        return memory;
+//        return MessageWindowChatMemory.withMaxMessages(10);
+
+        String id = String.valueOf(memoryId);
+        ChatMemory memory = sharedMemoryCache.getIfPresent(id);
+        if (memory == null) {
+            memory = MessageWindowChatMemory.builder()
+                    .id(memoryId)
+                    .maxMessages(50)
+                    .chatMemoryStore(chatMemoryStore) // 关键：绑定持久化 store
+                    .build();
+            sharedMemoryCache.put(id, memory);
+        }
+        return memory;
     }
 
 }

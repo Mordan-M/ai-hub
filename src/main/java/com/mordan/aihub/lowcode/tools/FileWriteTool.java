@@ -21,13 +21,12 @@ import java.nio.file.StandardOpenOption;
 @Component
 public class FileWriteTool extends BaseTool {
 
+
     @Tool("""
             写入文件到指定路径。
-            【重要】content 参数必须是字符串。
-            - 如果写入普通文本文件（如 .js, .html, .css），直接传递文本内容。
-            - 如果写入 JSON 文件（如 package.json），请先将 JSON 对象序列化为字符串，例如：
-              '{"name": "my-app", "version": "1.0.0"}'
-            不要直接传递 JSON 对象，必须传递字符串。
+            content 参数必须是字符串。如果写入 JSON 文件，请传入合法的 JSON 字符串，例如：
+            '{"name":"my-app","version":"1.0.0"}'
+            不要传递未经引号包裹的对象。
             """)
     public String writeFile(
             @P("文件的相对路径，例如：package.json、src/main.js") String relativeFilePath,
@@ -35,6 +34,9 @@ public class FileWriteTool extends BaseTool {
             @ToolMemoryId String appId
     ) {
         try {
+            // 修复可能出现的 Map.toString() 格式 {key=value, ...}
+            content = fixMapString(content);
+
             Path projectRoot = CurrentBuildContext.getProjectRoot(appId);
             Path path = projectRoot.resolve(relativeFilePath);
             // 创建父目录（如果不存在）
@@ -77,5 +79,115 @@ public class FileWriteTool extends BaseTool {
                         %s
                         ```
                         """, getDisplayName(), relativeFilePath, suffix, content);
+    }
+
+    /**
+     * 将 Java Map.toString() 产生的字符串（如 {name=app, version=1.0}）
+     * 转换为标准 JSON 字符串。
+     * 如果输入不是这种格式，原样返回。
+     */
+    private String fixMapString(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        // 检测是否以 { 开头，包含 =，且没有 "（即不是标准 JSON）
+        if (input.startsWith("{") && input.contains("=") && !input.contains("\"")) {
+            log.warn("检测到非标准 Map 字符串格式，尝试转换为 JSON: {}", input);
+            try {
+                // 使用正则将 key=value 转换为 "key":"value"
+                // 注意：value 可能包含嵌套的 {key=value}，需要递归处理
+                String json = convertMapStringToJson(input);
+                log.info("转换后的 JSON: {}", json);
+                return json;
+            } catch (Exception e) {
+                log.error("转换失败，使用原始内容", e);
+                return input;
+            }
+        }
+        return input;
+    }
+
+    /**
+     * 将类似 {name=app, scripts={dev=vite}} 的字符串转换为 JSON
+     * 使用简单的栈解析，支持嵌套
+     */
+    private String convertMapStringToJson(String mapStr) {
+        // 去掉最外层的 { 和 }
+        String inner = mapStr.substring(1, mapStr.length() - 1);
+        StringBuilder json = new StringBuilder("{");
+        int i = 0;
+        int len = inner.length();
+        while (i < len) {
+            // 查找 key
+            int eqIdx = findNextUnquoted(inner, '=', i);
+            if (eqIdx == -1) break;
+            String key = inner.substring(i, eqIdx).trim();
+            // 查找 value，可能嵌套 {}
+            int valueStart = eqIdx + 1;
+            int valueEnd = findValueEnd(inner, valueStart);
+            String value = inner.substring(valueStart, valueEnd).trim();
+            // 处理 value：如果 value 以 { 开头，递归转换
+            if (value.startsWith("{") && value.endsWith("}")) {
+                value = convertMapStringToJson(value);
+            } else {
+                // 转义双引号
+                value = "\"" + escapeJsonString(value) + "\"";
+            }
+            json.append("\"").append(escapeJsonString(key)).append("\":").append(value);
+            // 查找逗号
+            i = valueEnd;
+            if (i < len && inner.charAt(i) == ',') {
+                json.append(",");
+                i++;
+                // 跳过空格
+                while (i < len && Character.isWhitespace(inner.charAt(i))) i++;
+            } else {
+                break;
+            }
+        }
+        json.append("}");
+        return json.toString();
+    }
+
+    private int findNextUnquoted(String s, char ch, int start) {
+        for (int i = start; i < s.length(); i++) {
+            if (s.charAt(i) == ch) return i;
+            if (s.charAt(i) == '{') {
+                // 跳过嵌套结构
+                i = findMatchingBrace(s, i);
+            }
+        }
+        return -1;
+    }
+
+    private int findValueEnd(String s, int start) {
+        if (s.charAt(start) == '{') {
+            return findMatchingBrace(s, start) + 1;
+        } else {
+            int i = start;
+            while (i < s.length() && s.charAt(i) != ',' && s.charAt(i) != '}') {
+                i++;
+            }
+            return i;
+        }
+    }
+
+    private int findMatchingBrace(String s, int openIdx) {
+        int depth = 1;
+        for (int i = openIdx + 1; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '{') depth++;
+            else if (c == '}') depth--;
+            if (depth == 0) return i;
+        }
+        return s.length() - 1;
+    }
+
+    private String escapeJsonString(String s) {
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }

@@ -66,6 +66,7 @@ public class SecurityConfig {
                                 "/actuator/health",
                                 "/demo/*",
                                 "/lowcode/deploy/**",
+                                "/lowcode/preview/**",
                                 "/site/**"
                         ).permitAll()
                         // 其余所有路径需要认证

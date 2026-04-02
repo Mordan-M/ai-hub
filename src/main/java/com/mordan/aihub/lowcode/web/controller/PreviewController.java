@@ -56,8 +56,8 @@ public class PreviewController {
         GenerateRecordVO generatedRecord = generatedRecordService.getGeneratedRecord(Long.valueOf(appId));
         ThrowUtils.throwIf(generatedRecord == null, ErrorCode.NOT_FOUND_ERROR, "应用未生成代码");
 
-//        String url = "/lowcode/preview/lowcode-output-" + appId + "/dist/index.html";
-        response.sendRedirect(generatedRecord.getPreviewUrl());
+        String url = "/lowcode/preview/lowcode-output-" + generatedRecord.getFilePrefix() + "/dist/index.html";
+        response.sendRedirect(url);
     }
 
 
