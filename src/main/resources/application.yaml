@@ -76,12 +76,6 @@ jwt:
 
 # Low-code Platform Configuration
 app:
-  storage:
-    root: ./storage
-  deploy:
-    port: 4567
-    base-url: http://localhost:4567
   generation:
-    max-concurrent-tasks-per-user: 2
+    max-concurrent-tasks-per-user: 1
     max-retry: 3
-

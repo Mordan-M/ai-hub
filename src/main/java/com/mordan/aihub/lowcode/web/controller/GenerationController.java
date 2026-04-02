@@ -68,7 +68,6 @@ public class GenerationController {
      */
     @GetMapping("/tasks/{taskId}/stream")
     public SseEmitter streamProgress(
-            @PathVariable Long appId,
             @PathVariable Long taskId) {
         Long userId = userService.getCurrentUserId();
         // 鉴权
@@ -110,21 +109,10 @@ public class GenerationController {
      */
     @GetMapping("/tasks/{taskId}")
     public BaseResponse<TaskVO> getTaskStatus(
-            @PathVariable Long appId,
             @PathVariable Long taskId) {
         Long userId = userService.getCurrentUserId();
         TaskVO taskVO = generationTaskService.getTaskStatus(userId, taskId);
         return ResultUtils.success(taskVO);
     }
-
-//    /**
-//     * 获取应用下所有任务列表
-//     */
-//    @GetMapping("/tasks")
-//    public BaseResponse<List<TaskVO>> listTasksByApp(@PathVariable Long appId) {
-//        Long userId = userService.getCurrentUserId();
-//        List<TaskVO> tasks = generationTaskService.listTasksByApp(userId, appId);
-//        return ResultUtils.success(tasks);
-//    }
 
 }

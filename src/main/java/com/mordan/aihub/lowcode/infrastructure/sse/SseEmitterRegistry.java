@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -18,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class SseEmitterRegistry {
 
-    private static final long TIMEOUT_MS = 180000L; // 3分钟超时
+    private static final long TIMEOUT_MS = 600000L; // 10分钟超时
 
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;

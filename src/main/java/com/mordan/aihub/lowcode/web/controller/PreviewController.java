@@ -11,7 +11,6 @@ import com.mordan.aihub.lowcode.domain.service.GeneratedRecordService;
 import com.mordan.aihub.lowcode.domain.service.ProjectDownloadService;
 import com.mordan.aihub.lowcode.web.vo.GenerateRecordVO;
 import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -65,7 +64,6 @@ public class PreviewController {
 
     @PostMapping("/download/{appId}")
     public void downloadAppCode(@PathVariable Long appId,
-                                HttpServletRequest request,
                                 HttpServletResponse response) {
         // 1. 基础校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
