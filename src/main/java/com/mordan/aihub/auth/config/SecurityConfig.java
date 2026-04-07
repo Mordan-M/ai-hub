@@ -55,6 +55,8 @@ public class SecurityConfig {
                 .cors(cors -> cors.configure(http))
                 // 禁用 CSRF（前后端分离项目）
                 .csrf(AbstractHttpConfigurer::disable)
+                // 允许同域嵌入 iframe（预览功能需要）
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()))
                 // 设置 Session 策略为 STATELESS（不使用 Session）
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 配置路径权限
@@ -65,8 +67,8 @@ public class SecurityConfig {
                                 "/api/v1/user/login",
                                 "/actuator/health",
                                 "/demo/*",
-                                "/lowcode/deploy/**",
-//                                "/lowcode/preview/**",
+                                "/lowcode/deploy/**",         // 部署后所有人可以访问
+                                "/lowcode/preview/**",    // 预览静态资源（JWT filter 从 Cookie 认证）
                                 // 放行根路径下的静态资源（Vite 输出可能引用绝对路径）
                                 "/*.html",
                                 "/*.js",

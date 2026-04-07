@@ -146,7 +146,7 @@ public class AppController {
      * 获取应用生成记录信息（包含预览地址和部署地址）
      */
     @GetMapping("/{appId}/generated-info")
-    public BaseResponse<GenerateRecordVO> getGeneratedInfo(@PathVariable Long appId) {
+    public BaseResponse<GeneratedInfoVO> getGeneratedInfo(@PathVariable Long appId) {
         // 1. 基础校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
 
@@ -161,8 +161,29 @@ public class AppController {
         }
 
         // 4. 查询生成记录获取预览地址和部署地址
-        GenerateRecordVO generatedRecord = generatedRecordService.getGeneratedRecord(appId);
+        GenerateRecordVO fullRecord = generatedRecordService.getGeneratedRecord(appId);
 
-        return ResultUtils.success(generatedRecord);
+        // 只返回需要的 URL 信息，不返回其他敏感信息
+        GeneratedInfoVO vo = GeneratedInfoVO.builder()
+                .previewUrl(fullRecord != null ? fullRecord.getPreviewUrl() : null)
+                .deployUrl(fullRecord != null ? fullRecord.getDeployUrl() : null)
+                .downloadUrl(fullRecord != null ? fullRecord.getDownloadUrl() : null)
+                .build();
+
+        return ResultUtils.success(vo);
+    }
+
+    /**
+     * 生成信息响应 VO（只包含 URL，不返回敏感信息）
+     */
+    @lombok.Data
+    @lombok.Builder
+    public static class GeneratedInfoVO {
+        /** 预览地址 */
+        private String previewUrl;
+        /** 部署地址 */
+        private String deployUrl;
+        /** 下载地址 */
+        private String downloadUrl;
     }
 }

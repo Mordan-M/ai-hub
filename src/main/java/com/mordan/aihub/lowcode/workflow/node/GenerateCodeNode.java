@@ -49,6 +49,8 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
     @Override
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
+        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
+
 
         // 1. 构建结构化 userPrompt
         String userPrompt;
@@ -62,15 +64,16 @@ public class GenerateCodeNode implements NodeAction<WorkflowState> {
         }
         log.debug("Generated userPrompt (length={}):\n{}", userPrompt.length(), userPrompt);
 
+        sseEmitterRegistry.sendProgress(ctx.getTaskId(), "开始代码生成", null, retryCount);
+
         // 2. 调用 AI 生成代码
         String generatedResult = callAiAndParse(ctx, userPrompt);
 
         // 3. 更新上下文
         ctx.setGeneratedResult(generatedResult);
 
-        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
         if (Objects.nonNull(generatedResult)) {
-            sseEmitterRegistry.sendProgress(ctx.getTaskId(), "代码生成成功", generatedResult, retryCount);
+            sseEmitterRegistry.sendProgress(ctx.getTaskId(), "代码生成成功", null, retryCount);
         } else {
             sseEmitterRegistry.sendProgress(ctx.getTaskId(), "代码生成失败", ctx.getFailureReason(),  retryCount);
         }

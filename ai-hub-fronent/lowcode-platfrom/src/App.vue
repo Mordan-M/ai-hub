@@ -109,9 +109,9 @@
                 编辑
               </button>
               <template v-if="previewUrl">
-                <button class="btn-action" @click="switchToPreview">
+                <button class="btn-action" @click="openPreviewNewTab">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  打开预览
+                  预览
                 </button>
               </template>
               <template v-else>
@@ -220,13 +220,7 @@
                 <p>暂无预览，请先通过 AI 对话生成代码</p>
               </div>
               <div v-else class="preview-ready">
-                <div class="preview-ready-icon">✅</div>
-                <h3>代码已生成</h3>
-                <p>由于浏览器安全限制，预览页面需在新标签页中打开。<br>点击下方按钮即可查看完整预览效果。</p>
-                <a :href="previewUrl" target="_blank" rel="noopener noreferrer" class="btn-open-preview">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  在新标签页中打开预览
-                </a>
+                <iframe :src="previewUrl" frameborder="0" class="preview-iframe"></iframe>
                 <div class="preview-url-copy">
                   <span>{{ previewUrl }}</span>
                   <button @click="copyUrl">{{ copied ? '已复制 ✓' : '复制链接' }}</button>
@@ -686,9 +680,23 @@ function listenToStream(taskId) {
 // 导致跨域嵌入被浏览器阻止；而直接打开链接正常是因为不走 frame 加载。
 // 解决方案：弃用 iframe，改为提供"新标签页打开"+ 复制链接 的交互方式。
 function openPreviewUrl(url) { previewUrl.value = url; activeView.value = 'preview' }
-function switchToPreview() {
+async function switchToPreview() {
   if (!currentApp.value) return
-  if (!previewUrl.value) previewUrl.value = ENDPOINTS.preview(currentApp.value.id)
+  // previewUrl 已经从 /generated-info 接口获取了，直接使用
+  // 先发起 AJAX 请求获取 Cookie（token 在 header 会自动带上）
+  // 后端写入 Cookie 后，iframe 再加载就有 token 了
+  if (previewUrl.value) {
+    try {
+      await fetch(previewUrl.value, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('lf_token') || ''}`
+        }
+      })
+    } catch (e) {
+      console.warn('Pre-fetch preview cookie failed', e)
+    }
+  }
   activeView.value = 'preview'
 }
 function openPreviewNewTab() {
@@ -951,6 +959,8 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg); color: va
 .preview-url-copy span { flex: 1; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .preview-url-copy button { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border2); background: var(--surface2); color: var(--accent); font-size: 12px; cursor: pointer; font-family: 'Noto Sans SC', sans-serif; white-space: nowrap; transition: all 0.15s; font-weight: 500; }
 .preview-url-copy button:hover { background: var(--surface3); }
+.preview-ready { width: 100%; height: 100%; }
+.preview-iframe { width: 100%; height: 100%; min-height: 600px; border: none; background: #fff; }
 
 /* MODALS & OVERLAYS */
 .context-menu { position: fixed; z-index: 300; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 4px; min-width: 160px; box-shadow: 0 8px 24px rgba(80,60,200,0.15); }
