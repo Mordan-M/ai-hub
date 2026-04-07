@@ -42,4 +42,7 @@ public class GenerateRecordVO {
     /** 项目文件存储前缀（本次构建随机生成，用于隔离不同构建） */
     private String filePrefix;
 
+    /** 部署后访问 URL */
+    private String deployUrl;
+
 }

@@ -11,8 +11,11 @@ import com.mordan.aihub.lowcode.domain.service.GeneratedRecordService;
 import com.mordan.aihub.lowcode.domain.service.ProjectDownloadService;
 import com.mordan.aihub.lowcode.web.vo.GenerateRecordVO;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,7 +27,7 @@ import java.io.IOException;
 
 /**
  * 沙箱预览Controller
- * 无需鉴权，直接提供静态文件服务
+ * 需要鉴权：只有应用创建者可以预览
  * 预览路径即为部署路径
  */
 @Slf4j
@@ -46,10 +49,13 @@ public class PreviewController {
 
     /**
      * 访问 /preview/{appId} 时自动跳转到 index.html
+     * 从当前请求 header 取出 token，写入 Cookie 后重定向，
+     * 确保后续静态资源请求（index.html 引用的 css/js/svg 等）能自动携带认证
      */
     @GetMapping("/{appId}")
-    public void redirectToIndex(@PathVariable String appId,
-                                HttpServletResponse response) throws IOException {
+    public void previewApp(@PathVariable String appId,
+                           HttpServletRequest request,
+                           HttpServletResponse response) throws IOException {
 
         Application app = applicationService.getById(appId);
         ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
@@ -57,7 +63,26 @@ public class PreviewController {
         GenerateRecordVO generatedRecord = generatedRecordService.getGeneratedRecord(Long.valueOf(appId));
         ThrowUtils.throwIf(generatedRecord == null, ErrorCode.NOT_FOUND_ERROR, "应用未生成代码");
 
+        // 权限校验：只有应用创建者可以预览
+        Long userId = userService.getCurrentUserId();
+        if (!app.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限预览该应用");
+        }
+
         String url = "/lowcode/preview/" + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix() + "/dist/index.html";
+
+        // 从当前请求的 Authorization header 提取 token，写入 Cookie
+        // 因为访问这个接口本身已经需要认证，所以 token 一定存在于 header
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            String token = bearerToken.substring(7);
+            Cookie cookie = new Cookie("lf_token", token);
+            cookie.setPath("/");
+            cookie.setMaxAge(60 * 60); // 1小时有效期，足够预览使用
+            cookie.setHttpOnly(false);
+            response.addCookie(cookie);
+        }
+
         response.sendRedirect(url);
     }
 

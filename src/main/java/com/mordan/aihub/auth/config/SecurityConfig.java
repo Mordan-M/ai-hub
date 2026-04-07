@@ -66,8 +66,18 @@ public class SecurityConfig {
                                 "/actuator/health",
                                 "/demo/*",
                                 "/lowcode/deploy/**",
-                                "/lowcode/preview/**",
-                                "/site/**"
+//                                "/lowcode/preview/**",
+                                // 放行根路径下的静态资源（Vite 输出可能引用绝对路径）
+                                "/*.html",
+                                "/*.js",
+                                "/*.css",
+                                "/*.svg",
+                                "/*.png",
+                                "/*.jpg",
+                                "/*.jpeg",
+                                "/*.gif",
+                                "/*.ico",
+                                "/*.json"
                         ).permitAll()
                         // 其余所有路径需要认证
                         .anyRequest().authenticated()

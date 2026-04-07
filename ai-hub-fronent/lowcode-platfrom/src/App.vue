@@ -108,10 +108,34 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 编辑
               </button>
-              <button class="btn-action" @click="switchToPreview">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                预览
-              </button>
+              <template v-if="previewUrl">
+                <button class="btn-action" @click="switchToPreview">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  打开预览
+                </button>
+              </template>
+              <template v-else>
+                <button class="btn-action" disabled style="opacity: 0.5;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  尚未生成代码
+                </button>
+              </template>
+              <template v-if="!deployUrl">
+                <button class="btn-action" @click="deployApp" :disabled="isDeploying">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M16 16l-4-4-4 4m4-4v8"/><path d="M5 4h14M3 20h18a2 2 0 002-2V6a2 2 0 00-2-2H3a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  {{ isDeploying ? '部署中...' : '部署' }}
+                </button>
+              </template>
+              <template v-else>
+                <button class="btn-action" @click="openDeployedUrl">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 10"/></svg>
+                  打开部署
+                </button>
+                <button class="btn-action" @click="deployApp" :disabled="isDeploying">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2z"/></svg>
+                  {{ isDeploying ? '重新部署中...' : '重新部署' }}
+                </button>
+              </template>
               <button class="btn-action" @click="downloadApp">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 下载
@@ -297,6 +321,8 @@ const progressLabel= ref('准备中...')
 const progressPct  = ref(0)
 
 const previewUrl   = ref(null)
+const deployUrl    = ref(null)
+const isDeploying  = ref(false)
 const copied       = ref(false)
 
 const appModal     = reactive({ open: false, isEdit: false, name: '', desc: '', loading: false })
@@ -387,8 +413,20 @@ async function selectApp(app) {
   currentApp.value = app
   activeView.value = 'chat'
   previewUrl.value = null
+  deployUrl.value = null
   messages.value = []
   await loadConversations()
+  // 查询生成信息（预览地址 + 部署地址）
+  try {
+    const data = await request(ENDPOINTS.getGeneratedInfo(app.id))
+    if (data.code === 0 && data.data) {
+      previewUrl.value = data.data.previewUrl
+      deployUrl.value = data.data.deployUrl
+    }
+  } catch (e) {
+    // 查询失败不影响，忽略
+    console.warn('Failed to load generated info', e)
+  }
 }
 
 function openCreateModal() {
@@ -675,6 +713,34 @@ async function downloadApp() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
     toast('下载成功！', 'success')
   } catch (e) { toast('下载失败：' + e.message, 'error') }
+}
+
+async function deployApp() {
+  if (!currentApp.value) return
+  isDeploying.value = true
+  toast('开始部署...', 'info')
+  try {
+    const data = await request(ENDPOINTS.deploy(currentApp.value.id), { method: 'POST' })
+    if (data.code === 0) {
+      const deployedUrl = data.data
+      deployUrl.value = deployedUrl
+      toast('部署成功！', 'success')
+      // 打开部署后的地址
+      window.open(deployedUrl, '_blank', 'noopener,noreferrer')
+    } else {
+      toast(data.message || '部署失败', 'error')
+    }
+  } catch (e) {
+    toast('部署失败：' + e.message, 'error')
+  } finally {
+    isDeploying.value = false
+  }
+}
+
+function openDeployedUrl() {
+  if (deployUrl.value) {
+    window.open(deployUrl.value, '_blank', 'noopener,noreferrer')
+  }
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────

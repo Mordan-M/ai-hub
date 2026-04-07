@@ -131,6 +131,38 @@ public class AppController {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用部署失败：" + e.getMessage());
         }
 
-        return ResultUtils.success("/lowcode/deploy/" + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix() + "/dist/index.html");
+        // 7. 部署链接写入生成记录中
+        String deployUrl = "/lowcode/deploy/" + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix() + "/dist/index.html";
+        // 使用 lambda 更新
+        generatedRecordService.lambdaUpdate()
+                .eq(com.mordan.aihub.lowcode.domain.entity.GeneratedRecord::getAppId, appId)
+                .set(com.mordan.aihub.lowcode.domain.entity.GeneratedRecord::getDeployUrl, deployUrl)
+                .update();
+
+        return ResultUtils.success(deployUrl);
+    }
+
+    /**
+     * 获取应用生成记录信息（包含预览地址和部署地址）
+     */
+    @GetMapping("/{appId}/generated-info")
+    public BaseResponse<GenerateRecordVO> getGeneratedInfo(@PathVariable Long appId) {
+        // 1. 基础校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+
+        // 2. 查询应用信息
+        Application app = applicationService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+
+        // 3. 权限校验
+        Long userId = userService.getCurrentUserId();
+        if (!app.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限访问");
+        }
+
+        // 4. 查询生成记录获取预览地址和部署地址
+        GenerateRecordVO generatedRecord = generatedRecordService.getGeneratedRecord(appId);
+
+        return ResultUtils.success(generatedRecord);
     }
 }

@@ -37,6 +37,7 @@ public class GeneratedRecordServiceImpl extends ServiceImpl<GeneratedRecordMappe
                 .appId(version.getAppId())
                 .previewUrl(version.getPreviewUrl())
                 .downloadUrl(version.getDownloadUrl())
+                .deployUrl(version.getDeployUrl())
                 .projectSummary(version.getProjectSummary())
                 .fileSize(version.getFileSize())
                 .createdAt(version.getCreatedAt())

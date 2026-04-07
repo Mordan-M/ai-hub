@@ -16,6 +16,9 @@ export const ENDPOINTS = {
   taskStatus:  (aId, tId)  => `${BASE}/api/v1/lowcode/apps/${aId}/tasks/${tId}`,
   preview:     id           => `${BASE}/lowcode/preview/${id}`,
   download:    id           => `${BASE}/lowcode/preview/download/${id}`,
+  deploy:              id           => `${BASE}/api/v1/lowcode/apps/deploy/${id}`,
+  getGeneratedInfo:    id           => `${BASE}/api/v1/lowcode/apps/${id}/generated-info`,
+  deployedUrl:         id           => `${BASE}/lowcode/deploy/${id}/index.html`,
 }
 
 function getToken() {
