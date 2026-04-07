@@ -79,3 +79,21 @@ app:
   generation:
     max-concurrent-tasks-per-user: 1
     max-retry: 3
+
+# Auth Configuration
+auth:
+  register:
+    enable: false
+
+# RAG (Retrieval-Augmented Generation) Configuration
+# Set rag.enable=true to enable RAG assistant
+rag:
+  enable: false
+  # Path to persisted embedding store file
+  store-file: embedding-store.json
+  # Directory containing documents to ingest
+  docs-dir: src/main/resources/docs
+  # Maximum characters per text segment (keep under API limits)
+  max-segment-size: 150
+  # Overlap characters between adjacent segments
+  max-overlap-size: 15

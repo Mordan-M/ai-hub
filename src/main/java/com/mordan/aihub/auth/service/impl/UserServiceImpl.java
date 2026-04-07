@@ -9,6 +9,7 @@ import com.mordan.aihub.auth.service.UserService;
 import com.mordan.aihub.auth.util.JwtTokenProvider;
 import com.mordan.aihub.fitness.domain.entity.User;
 import com.mordan.aihub.fitness.mapper.UserMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -32,6 +33,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
 
+    @Value("${auth.register.enable:false}")
+    private boolean registerEnabled;
+
     public UserServiceImpl(PasswordEncoder passwordEncoder,
                            AuthenticationManager authenticationManager,
                            JwtTokenProvider jwtTokenProvider) {
@@ -42,6 +46,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public UserInfoVO register(RegisterRequest request) {
+        // 检查注册开关是否开启
+        if (!registerEnabled) {
+            throw new RuntimeException("注册功能已关闭，请联系管理员开启");
+        }
         // 1. 检查 username 是否已存在，存在则抛出业务异常（用户名已被占用）
         User existUser = this.lambdaQuery()
                 .eq(User::getUsername, request.username())
