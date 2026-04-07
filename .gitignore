@@ -1,5 +1,6 @@
 ### CUSTOM ###
 /src/main/resources/application-local.yaml
+/src/main/resources/application-prod.yaml
 
 HELP.md
 CLAUDE.md
