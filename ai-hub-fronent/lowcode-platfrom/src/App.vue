@@ -414,7 +414,7 @@ async function selectApp(app) {
   try {
     const data = await request(ENDPOINTS.getGeneratedInfo(app.id))
     if (data.code === 0 && data.data) {
-      previewUrl.value = data.data.previewUrl
+      previewUrl.value = processPreviewUrl(data.data.previewUrl)
       deployUrl.value = data.data.deployUrl
     }
   } catch (e) {
@@ -496,7 +496,7 @@ async function loadConversations() {
 
     // 提取最新的 previewUrl
     for (let i = all.length - 1; i >= 0; i--) {
-      if (all[i].previewUrl) { previewUrl.value = all[i].previewUrl; break }
+      if (all[i].previewUrl) { previewUrl.value = processPreviewUrl(all[i].previewUrl); break }
     }
 
     await scrollToBottom()
@@ -679,8 +679,9 @@ function listenToStream(taskId) {
 // 根本原因：服务端静态文件响应头含 X-Frame-Options: SAMEORIGIN 或 CSP frame-ancestors 'self'，
 // 导致跨域嵌入被浏览器阻止；而直接打开链接正常是因为不走 frame 加载。
 // 解决方案：弃用 iframe，改为提供"新标签页打开"+ 复制链接 的交互方式。
-function openPreviewUrl(url) {
-  // 兼容：如果服务端返回的 URL 没有 /dist/index.html 后缀，自动补上
+// 兼容处理：自动补全 /dist/index.html 后缀
+function processPreviewUrl(url) {
+  if (!url) return url
   let processedUrl = url
   if (!processedUrl.endsWith('/dist/index.html')) {
     if (!processedUrl.endsWith('/')) {
@@ -688,6 +689,11 @@ function openPreviewUrl(url) {
     }
     processedUrl += 'dist/index.html'
   }
+  return processedUrl
+}
+
+function openPreviewUrl(url) {
+  const processedUrl = processPreviewUrl(url)
   previewUrl.value = processedUrl
   activeView.value = 'preview'
 }
