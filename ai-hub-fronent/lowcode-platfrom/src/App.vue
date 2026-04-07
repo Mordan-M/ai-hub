@@ -132,10 +132,10 @@
                 <p>描述你想要构建的功能，AI 将为你生成完整的前端代码。<br>支持粘贴 API 文档以获得更准确的结果。</p>
               </div>
               <template v-for="msg in messages" :key="msg.id">
-                <div v-if="msg.role === 'SYSTEM' || msg.role === 'TOOL'" class="chat-message system">
+                <div v-if="msg.role === '系统' || msg.role === 'SYSTEM' || msg.role === '工具' || msg.role === 'TOOL'" class="chat-message system">
                   <div class="msg-bubble">🔧 {{ msg.content }}</div>
                 </div>
-                <div v-else-if="msg.role === 'USER'" class="chat-message user">
+                <div v-else-if="msg.role === '用户' || msg.role?.toUpperCase() === 'USER'" class="chat-message user">
                   <div>
                     <div class="msg-bubble user-bubble">{{ msg.content }}</div>
                     <div class="msg-time user-time">{{ fmtTime(msg.createdAt) }}</div>
@@ -459,8 +459,7 @@ async function loadConversations() {
       }
     }
 
-    // API 返回倒序（最新在前），翻转为正序展示
-    all.reverse()
+    // API 返回已经是正序（最早在前，最新在后），直接使用
     messages.value = all
 
     // 提取最新的 previewUrl
@@ -513,60 +512,133 @@ function listenToStream(taskId) {
   return new Promise((resolve) => {
     const appId = currentApp.value.id
     const token = localStorage.getItem('lf_token') || ''
-    const url = ENDPOINTS.taskStream(appId, taskId) + (token ? `?token=${encodeURIComponent(token)}` : '')
-    const sse = new EventSource(url)
+    const url = ENDPOINTS.taskStream(appId, taskId)
     let fallbackTimer = null
     let resolved = false
+    let controller = null
 
     function done() {
       if (resolved) return; resolved = true
-      sse.close(); clearInterval(fallbackTimer); isGenerating.value = false; resolve()
+      if (controller) controller.abort()
+      clearInterval(fallbackTimer); isGenerating.value = false; resolve()
     }
 
-    sse.addEventListener('connected', () => { progressLabel.value = '已连接，等待生成...'; progressPct.value = 15 })
-    sse.addEventListener('progress', e => {
+    // 使用 fetch + ReadableStream 实现 SSE，支持自定义 Authorization header
+    (async () => {
       try {
-        const d = JSON.parse(e.data)
-        progressLabel.value = d.message || '生成中...'; progressPct.value = d.percent || 50
-        scrollToBottom()
-      } catch (_) {}
-    })
-    sse.addEventListener('error', async e => {
-      try {
-        const d = JSON.parse(e.data)
-        messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 生成失败：${d.message || '未知错误'}`, createdAt: Date.now() })
-      } catch (_) {
-        messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: '❌ 生成过程中发生错误', createdAt: Date.now() })
-      }
-      await scrollToBottom(); done()
-    })
-    sse.addEventListener('complete', async () => {
-      progressLabel.value = '生成完成！'; progressPct.value = 100
-      await new Promise(r => setTimeout(r, 400))
-      await loadConversations()
-      toast('代码生成成功！', 'success'); done()
-    })
-    // SSE 断线降级轮询
-    sse.onerror = () => {
-      if (resolved) return; sse.close()
-      fallbackTimer = setInterval(async () => {
-        if (resolved) { clearInterval(fallbackTimer); return }
-        try {
-          const data = await request(ENDPOINTS.taskStatus(appId, taskId))
-          if (data.code === 0) {
-            const s = data.data.status
-            if (s === 'SUCCESS') {
-              progressLabel.value = '生成完成！'; progressPct.value = 100
-              await new Promise(r => setTimeout(r, 400))
-              await loadConversations(); toast('代码生成成功！', 'success'); done()
-            } else if (s === 'FAILED') {
-              messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 生成失败：${data.data.errorMessage || '未知错误'}`, createdAt: Date.now() })
-              await scrollToBottom(); done()
-            } else { progressLabel.value = '处理中...'; progressPct.value = 50 }
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           }
-        } catch (_) {}
-      }, 3000)
-    }
+        })
+
+        if (!response.ok) {
+          messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 连接失败：HTTP ${response.status}`, createdAt: Date.now() })
+          await scrollToBottom(); done()
+          return
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let currentEvent = null
+        let currentData = null
+
+        function parseSSEEvent(line) {
+          if (line.startsWith('event:')) {
+            return line.substring(6).trim()
+          }
+          if (line.startsWith('data:')) {
+            return line.substring(5).trim()
+          }
+          return null
+        }
+
+        while (true) {
+          const { done: doneReading, value } = await reader.read()
+          if (doneReading) {
+            // 流结束，触发降级轮询
+            break
+          }
+          buffer += decoder.decode(value, { stream: true })
+          // 按行分割处理
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          for (const line of lines) {
+            const trimmed = line.trim()
+            // 按照 SSE 协议，空行表示事件结束
+            if (!trimmed) {
+              // 遇到空行，处理完整事件
+              if (currentEvent && currentData) {
+                try {
+                  if (currentEvent === 'connected') {
+                    const d = JSON.parse(currentData)
+                    progressLabel.value = d.message || '已连接，等待生成...'; progressPct.value = 15
+                    scrollToBottom()
+                  } else if (currentEvent === 'progress') {
+                    const d = JSON.parse(currentData)
+                    progressLabel.value = d.message || '生成中...'; progressPct.value = d.percent || 50
+                    scrollToBottom()
+                  } else if (currentEvent === 'error') {
+                    const d = JSON.parse(currentData)
+                    messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 生成失败：${d.message || '未知错误'}`, createdAt: Date.now() })
+                    scrollToBottom(); done()
+                  } else if (currentEvent === 'complete') {
+                    progressLabel.value = '生成完成！'; progressPct.value = 100
+                    setTimeout(async () => {
+                      await loadConversations()
+                      toast('代码生成成功！', 'success'); done()
+                    }, 400)
+                  }
+                } catch (_) {}
+                currentEvent = null
+                currentData = null
+              }
+              continue
+            }
+            const parsed = parseSSEEvent(trimmed)
+            if (parsed && line.startsWith('event:')) {
+              currentEvent = parsed
+            } else if (parsed && line.startsWith('data:')) {
+              currentData = parsed
+            }
+          }
+        }
+        // 流读取结束，启动降级轮询
+        if (!resolved) {
+          reader.cancel()
+        }
+      } catch (e) {
+        if (!resolved) {
+          console.error('SSE connection error', e)
+        }
+      } finally {
+        // 启动降级轮询（当连接意外断开时）
+        if (!resolved) {
+          fallbackTimer = setInterval(async () => {
+            if (resolved) { clearInterval(fallbackTimer); return }
+            try {
+              const data = await request(ENDPOINTS.taskStatus(appId, taskId))
+              if (data.code === 0) {
+                const s = data.data.status
+                if (s === 'SUCCESS') {
+                  progressLabel.value = '生成完成！'; progressPct.value = 100
+                  await new Promise(r => setTimeout(r, 400))
+                  await loadConversations(); toast('代码生成成功！', 'success'); done()
+                } else if (s === 'FAILED') {
+                  messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 生成失败：${data.data.errorMessage || '未知错误'}`, createdAt: Date.now() })
+                  await scrollToBottom(); done()
+                } else { progressLabel.value = '处理中...'; progressPct.value = 50 }
+              }
+            } catch (_) {}
+          }, 3000)
+        }
+      }
+    })()
   })
 }
 

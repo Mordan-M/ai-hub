@@ -168,15 +168,13 @@ export async function getProductList(params) {
 
 ## 运行自检清单（输出前逐项核查，全部通过后再执行文件操作）
 
-### 工程配置
-- [ ] index.html 含 id="app" 挂载点
-- [ ] src/main.js 含 use(router) 和 mount('#app')
-- [ ] vite.config.js 含 base: './'、@vitejs/plugin-vue、@ 路径别名
-- [ ] router/index.js 使用 createWebHashHistory
-- [ ] package.json 依赖声明完整，可通过 npm install 成功安装
-- [ ] 所有 import 路径正确，npm run dev 启动后无控制台报错
-- [ ] npm run build 可成功产出 dist/
-- [ ] 构建产物可在任意子路径下正常部署访问
+### 质量检验标准
+
+确保生成的项目能够：
+1. 通过 `npm install` 成功安装所有依赖
+2. 通过 `npm run dev` 启动开发服务器并正常运行
+3. 通过 `npm run build` 成功构建生产版本
+4. 构建后的项目能够在任意子路径下正常部署和访问
 
 ### 内容规范
 - [ ] 图片使用已验证的 Unsplash ID 或 Picsum，无本地路径，Picsum random 参数各不相同
