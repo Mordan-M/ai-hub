@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class SseEmitterRegistry {
 
-    private static final long TIMEOUT_MS = 600000L; // 10分钟超时
+    public static final long TIMEOUT_MS = 600000L; // 10分钟超时
 
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;

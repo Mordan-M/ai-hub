@@ -72,7 +72,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
 //        }
 
         // 设置访问地址并更新记录
-        String previewUrl = AppConstant.PREVIEW_URL_PREFIX + AppConstant.CODE_OUTPUT_PREFIX + buildDirPrefix;
+        String previewUrl = AppConstant.PREVIEW_URL_PREFIX + AppConstant.CODE_OUTPUT_PREFIX + buildDirPrefix + "/dist/index.html";
         String downloadUrl = AppConstant.DOWNLOAD_URL_PREFIX + appId;
 
         GeneratedRecord version = GeneratedRecord.builder()

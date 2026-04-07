@@ -34,8 +34,6 @@ import java.util.Map;
 @RequestMapping("/api/v1/lowcode/apps/{appId}")
 public class GenerationController {
 
-    private static final long SSE_TIMEOUT = 180000L; // 3分钟
-
     @Resource
     private UserService userService;
 
@@ -73,7 +71,7 @@ public class GenerationController {
         // 鉴权
         generationTaskService.getTaskStatus(userId, taskId);
 
-        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
+        SseEmitter emitter = new SseEmitter(SseEmitterRegistry.TIMEOUT_MS);
         sseEmitterRegistry.register(taskId.toString(), emitter);
 
         // 立即推送连接成功事件
