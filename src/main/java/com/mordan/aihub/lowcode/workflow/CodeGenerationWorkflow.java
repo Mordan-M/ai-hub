@@ -9,7 +9,6 @@ import com.mordan.aihub.lowcode.workflow.node.IntentCheckNode;
 import com.mordan.aihub.lowcode.workflow.node.MarkFailedNode;
 import com.mordan.aihub.lowcode.workflow.node.ParseIntentNode;
 import com.mordan.aihub.lowcode.workflow.node.RejectNode;
-//import com.mordan.aihub.lowcode.workflow.node.RepairCodeNode;
 import com.mordan.aihub.lowcode.workflow.node.SaveGenerateRecordNode;
 import com.mordan.aihub.lowcode.workflow.node.ValidateCodeNode;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
@@ -61,7 +60,6 @@ public class CodeGenerationWorkflow {
     @Resource private ParseIntentNode parseIntentNode;
     @Resource private GenerateCodeNode generateCodeNode;
     @Resource private ValidateCodeNode validateCodeNode;
-//    @Resource private RepairCodeNode repairCodeNode;
     @Resource private BuildNode buildNode;
     @Resource private SaveGenerateRecordNode saveVersionNode;
     @Resource private MarkFailedNode markFailedNode;
@@ -83,7 +81,6 @@ public class CodeGenerationWorkflow {
         graph.addNode("parseIntent",  AsyncNodeAction.node_async(parseIntentNode));
         graph.addNode("generateCode", AsyncNodeAction.node_async(generateCodeNode));
         graph.addNode("validateCode", AsyncNodeAction.node_async(validateCodeNode));
-//        graph.addNode("repair",       AsyncNodeAction.node_async(repairCodeNode));
         graph.addNode("build",        AsyncNodeAction.node_async(buildNode));
         graph.addNode("saveVersion",  AsyncNodeAction.node_async(saveVersionNode));
         graph.addNode("fail",         AsyncNodeAction.node_async(markFailedNode));
@@ -115,9 +112,6 @@ public class CodeGenerationWorkflow {
                 "repair",   "generateCode",
                 "fail", "fail"
         ));
-
-        // repair 完成后回到 validateCode 重新校验（循环收敛）
-//        graph.addEdge("repair",      "validateCode");
 
         graph.addEdge("build",       "saveVersion");
 
