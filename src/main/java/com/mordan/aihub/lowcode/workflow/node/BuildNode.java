@@ -1,6 +1,7 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
 import com.mordan.aihub.lowcode.constant.AppConstant;
+import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
 import com.mordan.aihub.lowcode.workflow.build.VueProjectBuilder;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
@@ -24,19 +25,22 @@ public class BuildNode implements NodeAction<WorkflowState> {
 
     @Resource
     private VueProjectBuilder vueProjectBuilder;
-//
-//    @Resource
-//    private GenerationProperties generationProperties;
+
+    @Resource
+    private SseEmitterRegistry sseEmitterRegistry;
 
     @Override
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
         String generatedResult = ctx.getGeneratedResult();
+        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
 
         if (generatedResult == null) {
             log.warn("No generated code to build");
             return WorkflowState.saveContext(ctx);
         }
+
+        sseEmitterRegistry.sendProgress(ctx.getTaskId(), "build", "正在编译构建前端项目", retryCount);
 
         Path buildDir = null;
         try {

@@ -2,6 +2,7 @@ package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.ai.ParseIntentAiService;
+import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.ParsedIntent;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
@@ -27,11 +28,17 @@ public class ParseIntentNode implements NodeAction<WorkflowState> {
     @Resource
     private ObjectMapper objectMapper;
 
+    @Resource
+    private SseEmitterRegistry sseEmitterRegistry;
+
     @Override
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
         String appId = ctx.getAppId();
         String userPrompt = buildUserPrompt(ctx);
+        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
+
+        sseEmitterRegistry.sendProgress(ctx.getTaskId(), "parse-intent", "正在解析需求意图", retryCount);
 
         try {
             String jsonResult = parseIntentAiService.parseIntent(appId, userPrompt).trim();

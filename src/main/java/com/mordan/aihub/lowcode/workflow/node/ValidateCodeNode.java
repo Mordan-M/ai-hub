@@ -4,6 +4,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.ai.ValidateAiService;
+import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
 import com.mordan.aihub.lowcode.tools.CurrentBuildContext;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.QualityResult;
@@ -63,6 +64,9 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
     @Resource
     private ObjectMapper objectMapper;
 
+    @Resource
+    private SseEmitterRegistry sseEmitterRegistry;
+
     // ─────────────────────────────────────────────────────────────
     // 主入口
     // ─────────────────────────────────────────────────────────────
@@ -71,7 +75,10 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
         String appId = ctx.getAppId();
+        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
         log.info("执行节点: 代码质量检查");
+
+        sseEmitterRegistry.sendProgress(ctx.getTaskId(), "validate-code", "正在进行代码自我质量检查", retryCount);
 
         Path projectRoot = CurrentBuildContext.getProjectRoot(appId);
         QualityResult qualityResult;

@@ -2,6 +2,7 @@ package com.mordan.aihub.lowcode.workflow.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.ai.IntentCheckAiService;
+import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
 import com.mordan.aihub.lowcode.workflow.state.GenerationWorkflowContext;
 import com.mordan.aihub.lowcode.workflow.state.IntentCheckResult;
 import com.mordan.aihub.lowcode.workflow.state.WorkflowState;
@@ -26,12 +27,18 @@ public class IntentCheckNode implements NodeAction<WorkflowState> {
     @Resource
     private ObjectMapper objectMapper;
 
+    @Resource
+    private SseEmitterRegistry sseEmitterRegistry;
+
     @Override
     public Map<String, Object> apply(WorkflowState state) {
         GenerationWorkflowContext ctx = state.context();
         String appId = ctx.getAppId();
         String userPrompt = ctx.getUserPrompt();
         String existingProjectSummary = ctx.getExistingProjectSummary();
+        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
+
+        sseEmitterRegistry.sendProgress(ctx.getTaskId(), "intent-check", "正在进行意图检查", retryCount);
 
         // 当已有项目摘要存在时，追加到 prompt 中，告知 AI 这是修改意图检查
         String fullPrompt = buildFullPrompt(userPrompt, existingProjectSummary);

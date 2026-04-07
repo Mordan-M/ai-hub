@@ -44,6 +44,9 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
         Long appId  = parseLong(ctx.getAppId(),  "appId");
         Long userId = parseLong(ctx.getUserId(), "userId");
         Long taskId = parseLong(ctx.getTaskId(), "taskId");
+        int retryCount = ctx.getRetryCount() == null ? 0 : ctx.getRetryCount();
+
+        sseEmitterRegistry.sendProgress(ctx.getTaskId(), "save-record", "正在保存生成结果", retryCount);
 
         // 优先取 generatedCode，降级取 finalCode
         String generatedResult = ctx.getGeneratedResult();
