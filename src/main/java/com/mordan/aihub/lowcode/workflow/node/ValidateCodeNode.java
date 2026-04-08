@@ -67,6 +67,9 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
     @Resource
     private SseEmitterRegistry sseEmitterRegistry;
 
+    @Resource
+    private CurrentBuildContext currentBuildContext;
+
     // ─────────────────────────────────────────────────────────────
     // 主入口
     // ─────────────────────────────────────────────────────────────
@@ -80,7 +83,7 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
 
         sseEmitterRegistry.sendProgress(ctx.getTaskId(), "validate-code", "正在进行代码自我质量检查", retryCount);
 
-        Path projectRoot = CurrentBuildContext.getProjectRoot(appId);
+        Path projectRoot = currentBuildContext.getProjectRoot(appId);
         QualityResult qualityResult;
         try {
             // 1. 读取并拼接代码文件内容

@@ -6,6 +6,7 @@ import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,9 @@ import java.util.Set;
 @Slf4j
 @Component
 public class FileDirReadTool extends BaseTool {
+
+    @Resource
+    private CurrentBuildContext currentBuildContext;
 
     /**
      * 需要忽略的文件和目录
@@ -47,7 +51,7 @@ public class FileDirReadTool extends BaseTool {
             if (relativeDirPath == null) {
                 relativeDirPath = "";
             }
-            Path projectRoot = CurrentBuildContext.getProjectRoot(appId);
+            Path projectRoot = currentBuildContext.getProjectRoot(appId);
             Path path = projectRoot.resolve(relativeDirPath);
             File targetDir = path.toFile();
             if (!targetDir.exists() || !targetDir.isDirectory()) {

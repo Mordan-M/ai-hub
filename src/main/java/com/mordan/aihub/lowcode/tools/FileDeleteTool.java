@@ -4,6 +4,7 @@ import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,9 @@ import java.nio.file.Path;
 @Component
 public class FileDeleteTool extends BaseTool {
 
+    @Resource
+    private CurrentBuildContext currentBuildContext;
+
     @Tool("删除指定路径的文件")
     public String deleteFile(
             @P("文件的相对路径")
@@ -26,7 +30,7 @@ public class FileDeleteTool extends BaseTool {
             @ToolMemoryId String appId
     ) {
         try {
-            Path projectRoot = CurrentBuildContext.getProjectRoot(appId);
+            Path projectRoot = currentBuildContext.getProjectRoot(appId);
             Path path = projectRoot.resolve(relativeFilePath);
             if (!Files.exists(path)) {
                 return "警告：文件不存在，无需删除 - " + relativeFilePath;

@@ -79,6 +79,11 @@ app:
   generation:
     max-concurrent-tasks-per-user: 1
     max-retry: 3
+  lowcode:
+    # 代码生成输出根目录
+    code-output-root-dir: ${user.dir}/tmp/code_output
+    # 代码部署根目录（供公网访问）
+    code-deploy-root-dir: ${user.dir}/tmp/code_deploy
 
 # Auth Configuration
 auth:

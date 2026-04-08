@@ -5,6 +5,7 @@ import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,8 @@ import java.nio.file.StandardOpenOption;
 @Component
 public class FileWriteTool extends BaseTool {
 
+    @Resource
+    private CurrentBuildContext currentBuildContext;
 
     @Tool("""
             写入文件到指定路径。
@@ -37,7 +40,7 @@ public class FileWriteTool extends BaseTool {
             // 修复可能出现的 Map.toString() 格式 {key=value, ...}
             content = fixMapString(content);
 
-            Path projectRoot = CurrentBuildContext.getProjectRoot(appId);
+            Path projectRoot = currentBuildContext.getProjectRoot(appId);
             Path path = projectRoot.resolve(relativeFilePath);
             // 创建父目录（如果不存在）
             Path parentDir = path.getParent();

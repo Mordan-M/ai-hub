@@ -1,5 +1,6 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
+import com.mordan.aihub.lowcode.config.LowCodeProperties;
 import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.domain.entity.GeneratedRecord;
 import com.mordan.aihub.lowcode.domain.entity.GenerationTask;
@@ -37,6 +38,8 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
     private SseEmitterRegistry sseEmitterRegistry;
     @Resource
     private ConversationService conversationService;
+    @Resource
+    private LowCodeProperties lowCodeProperties;
 
     @Override
     public Map<String, Object> apply(WorkflowState state) {
@@ -54,7 +57,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
         // 代码已经在构建阶段写入文件系统，直接使用构建目录路径
         String buildDirPrefix = ctx.getBuildDirPrefix();
         String dirName = AppConstant.CODE_OUTPUT_PREFIX + buildDirPrefix;
-        String storagePath = Path.of(AppConstant.CODE_OUTPUT_ROOT_DIR, dirName).toString();
+        String storagePath = Path.of(lowCodeProperties.getCodeOutputRootDir(), dirName).toString();
 
         // 计算文件总大小
         long totalSize = calculateTotalSize(storagePath);
@@ -72,7 +75,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
 //        }
 
         // 设置访问地址并更新记录
-        String previewUrl = AppConstant.PREVIEW_URL_PREFIX + "/" + buildDirPrefix;
+        String previewUrl = AppConstant.PREVIEW_URL_PREFIX + "/" + AppConstant.CODE_OUTPUT_PREFIX + buildDirPrefix + "/dist/index.html";
 
         GeneratedRecord version = GeneratedRecord.builder()
                 .appId(appId)

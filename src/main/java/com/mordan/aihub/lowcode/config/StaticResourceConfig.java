@@ -1,6 +1,7 @@
 package com.mordan.aihub.lowcode.config;
 
 import com.mordan.aihub.lowcode.constant.AppConstant;
+import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -15,14 +16,17 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class StaticResourceConfig implements WebMvcConfigurer {
 
+    @Resource
+    private LowCodeProperties lowCodeProperties;
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 访问 /preview/** 时映射到 dist/ 目录
         registry.addResourceHandler(AppConstant.PREVIEW_URL_PREFIX + "/**")
-                .addResourceLocations("file:" + AppConstant.CODE_OUTPUT_ROOT_DIR + "/")
+                .addResourceLocations("file:" + lowCodeProperties.getCodeOutputRootDir() + "/")
                 .setCacheControl(CacheControl.noCache());
         registry.addResourceHandler(AppConstant.DEPLOY_URL_PREFIX + "/**")
-                .addResourceLocations("file:" + AppConstant.CODE_DEPLOY_ROOT_DIR + "/")
+                .addResourceLocations("file:" + lowCodeProperties.getCodeDeployRootDir() + "/")
                 .setCacheControl(CacheControl.noCache());
     }
 }

@@ -7,6 +7,7 @@ import com.mordan.aihub.auth.service.UserService;
 import com.mordan.aihub.common.utils.ResultUtils;
 import com.mordan.aihub.common.vo.BaseResponse;
 import com.mordan.aihub.common.vo.ErrorCode;
+import com.mordan.aihub.lowcode.config.LowCodeProperties;
 import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.domain.entity.Application;
 import com.mordan.aihub.lowcode.domain.service.ApplicationService;
@@ -49,6 +50,9 @@ public class AppController {
 
     @Resource
     private ProjectDownloadService projectDownloadService;
+
+    @Resource
+    private LowCodeProperties lowCodeProperties;
 
     /**
      * 创建应用
@@ -129,7 +133,9 @@ public class AppController {
                 ErrorCode.NOT_FOUND_ERROR, "应用代码不存在，请先生成代码");
 
         // 6. 复制文件到部署目录
-        String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix();
+        String deployDirPath = lowCodeProperties.getCodeDeployRootDir()
+                + File.separator + AppConstant.CODE_OUTPUT_PREFIX
+                + generatedRecord.getFilePrefix() + "/dist/index.html";
         try {
             FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
         } catch (Exception e) {
@@ -137,7 +143,8 @@ public class AppController {
         }
 
         // 7. 部署链接写入生成记录中
-        String deployUrl = "/lowcode-gen/deploy/" + generatedRecord.getFilePrefix();
+        String deployUrl = AppConstant.DEPLOY_URL_PREFIX + "/" + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix();
+
         // 使用 lambda 更新
         generatedRecordService.lambdaUpdate()
                 .eq(com.mordan.aihub.lowcode.domain.entity.GeneratedRecord::getAppId, appId)

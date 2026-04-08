@@ -4,6 +4,7 @@ import cn.hutool.json.JSONObject;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,9 @@ import java.nio.file.Path;
 @Component
 public class FileReadTool extends BaseTool {
 
+    @Resource
+    private CurrentBuildContext currentBuildContext;
+
     @Tool("读取指定路径的文件内容")
     public String readFile(
             @P("文件的相对路径")
@@ -26,7 +30,7 @@ public class FileReadTool extends BaseTool {
             @ToolMemoryId String appId
     ) {
         try {
-            Path projectRoot = CurrentBuildContext.getProjectRoot(appId);
+            Path projectRoot = currentBuildContext.getProjectRoot(appId);
             Path path = projectRoot.resolve(relativeFilePath);
             if (!Files.exists(path) || !Files.isRegularFile(path)) {
                 return "错误：文件不存在或不是文件 - " + relativeFilePath;

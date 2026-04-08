@@ -1,5 +1,6 @@
 package com.mordan.aihub.lowcode.workflow.node;
 
+import com.mordan.aihub.lowcode.config.LowCodeProperties;
 import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.infrastructure.sse.SseEmitterRegistry;
 import com.mordan.aihub.lowcode.workflow.build.VueProjectBuilder;
@@ -28,6 +29,8 @@ public class BuildNode implements NodeAction<WorkflowState> {
 
     @Resource
     private SseEmitterRegistry sseEmitterRegistry;
+    @Resource
+    private LowCodeProperties lowCodeProperties;
 
     @Override
     public Map<String, Object> apply(WorkflowState state) {
@@ -80,7 +83,7 @@ public class BuildNode implements NodeAction<WorkflowState> {
      */
     private Path createBuildDirectory(String buildDirPrefix) throws IOException {
         String dirName = AppConstant.CODE_OUTPUT_PREFIX + buildDirPrefix;
-        Path basePath = Path.of(AppConstant.CODE_OUTPUT_ROOT_DIR);
+        Path basePath = Path.of(lowCodeProperties.getCodeOutputRootDir());
         Files.createDirectories(basePath);
         Path projectDir = basePath.resolve(dirName);
         if (!Files.exists(projectDir)) {

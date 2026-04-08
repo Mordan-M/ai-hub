@@ -66,6 +66,9 @@ public class CodeGenerationWorkflow {
 //    @Resource private MemorySaver memorySaver;
     @Resource private GenerationProperties generationProperties;
 
+    @Resource
+    private CurrentBuildContext currentBuildContext;
+
     // 使用虚拟线程池，每个任务独立线程，互不阻塞
     private final Executor workflowExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -151,7 +154,7 @@ public class CodeGenerationWorkflow {
                 log.error("Workflow execution failed for taskId={}", taskId, e);
             } finally {
                 // 任务完成，清除当前构建上下文缓存
-                CurrentBuildContext.remove(appId);
+                currentBuildContext.remove(appId);
             }
         });
     }

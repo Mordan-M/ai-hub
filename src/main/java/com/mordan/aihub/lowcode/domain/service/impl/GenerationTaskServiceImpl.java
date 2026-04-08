@@ -3,7 +3,6 @@ package com.mordan.aihub.lowcode.domain.service.impl;
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mordan.aihub.lowcode.config.GenerationProperties;
 import com.mordan.aihub.lowcode.domain.entity.GeneratedRecord;
 import com.mordan.aihub.lowcode.domain.entity.GenerationTask;
@@ -46,7 +45,7 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
     @Resource
     private CodeGenerationWorkflow codeGenerationWorkflow;
     @Resource
-    private ObjectMapper objectMapper;
+    private CurrentBuildContext currentBuildContext;
 
     @Override
     public TaskVO submitGenerateTask(Long userId, Long appId, GenerateRequest req) {
@@ -113,7 +112,7 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
                 .build();
 
         // 设置当前构建上下文，供工具获取正确路径
-        CurrentBuildContext.setPrefix(appId, buildDirPrefix);
+        currentBuildContext.setPrefix(appId, buildDirPrefix);
 
         Map<String, Object> initialState = Map.of(WorkflowState.CONTEXT_KEY, context);
 
