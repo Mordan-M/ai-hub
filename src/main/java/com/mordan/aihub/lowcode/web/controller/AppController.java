@@ -134,8 +134,7 @@ public class AppController {
 
         // 6. 复制文件到部署目录
         String deployDirPath = lowCodeProperties.getCodeDeployRootDir()
-                + File.separator + AppConstant.CODE_OUTPUT_PREFIX
-                + generatedRecord.getFilePrefix() + "/dist/index.html";
+                + File.separator + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix();
         try {
             FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
         } catch (Exception e) {
@@ -143,7 +142,8 @@ public class AppController {
         }
 
         // 7. 部署链接写入生成记录中
-        String deployUrl = AppConstant.DEPLOY_URL_PREFIX + "/" + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix();
+        String deployUrl = AppConstant.DEPLOY_URL_PREFIX + "/" + AppConstant.CODE_OUTPUT_PREFIX
+                + generatedRecord.getFilePrefix() + "/dist/index.html";;
 
         // 使用 lambda 更新
         generatedRecordService.lambdaUpdate()

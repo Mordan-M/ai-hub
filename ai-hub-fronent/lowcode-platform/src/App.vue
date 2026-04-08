@@ -623,6 +623,16 @@ function listenToStream(taskId) {
                     progressLabel.value = '生成完成！'; progressPct.value = 100
                     setTimeout(async () => {
                       await loadConversations()
+                      // 重新获取生成信息，更新预览地址，让预览按钮显示出来
+                      try {
+                        const genData = await request(ENDPOINTS.getGeneratedInfo(currentApp.value.id))
+                        if (genData.code === 0 && genData.data) {
+                          previewUrl.value = processPreviewUrl(genData.data.previewUrl)
+                          deployUrl.value = genData.data.deployUrl
+                        }
+                      } catch (e) {
+                        console.warn('Failed to load generated info after generation', e)
+                      }
                       toast('代码生成成功！', 'success'); done()
                     }, 400)
                   }
@@ -660,7 +670,18 @@ function listenToStream(taskId) {
                 if (s === 'SUCCESS') {
                   progressLabel.value = '生成完成！'; progressPct.value = 100
                   await new Promise(r => setTimeout(r, 400))
-                  await loadConversations(); toast('代码生成成功！', 'success'); done()
+                  await loadConversations()
+                  // 重新获取生成信息，更新预览地址，让预览按钮显示出来
+                  try {
+                    const genData = await request(ENDPOINTS.getGeneratedInfo(currentApp.value.id))
+                    if (genData.code === 0 && genData.data) {
+                      previewUrl.value = processPreviewUrl(genData.data.previewUrl)
+                      deployUrl.value = genData.data.deployUrl
+                    }
+                  } catch (e) {
+                    console.warn('Failed to load generated info after generation', e)
+                  }
+                  toast('代码生成成功！', 'success'); done()
                 } else if (s === 'FAILED') {
                   messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 生成失败：${data.data.errorMessage || '未知错误'}`, createdAt: Date.now() })
                   await scrollToBottom(); done()
