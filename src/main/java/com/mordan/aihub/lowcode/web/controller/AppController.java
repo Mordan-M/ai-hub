@@ -11,11 +11,13 @@ import com.mordan.aihub.lowcode.constant.AppConstant;
 import com.mordan.aihub.lowcode.domain.entity.Application;
 import com.mordan.aihub.lowcode.domain.service.ApplicationService;
 import com.mordan.aihub.lowcode.domain.service.GeneratedRecordService;
+import com.mordan.aihub.lowcode.domain.service.ProjectDownloadService;
 import com.mordan.aihub.lowcode.web.request.CreateAppRequest;
 import com.mordan.aihub.lowcode.web.request.UpdateAppRequest;
 import com.mordan.aihub.lowcode.web.vo.AppVO;
 import com.mordan.aihub.lowcode.web.vo.GenerateRecordVO;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,7 +35,7 @@ import java.util.List;
  * 应用管理Controller
  */
 @RestController
-@RequestMapping("/api/v1/lowcode/apps")
+@RequestMapping("/ai-hub/lowcode/apps")
 public class AppController {
 
     @Resource
@@ -44,6 +46,9 @@ public class AppController {
 
     @Resource
     private GeneratedRecordService generatedRecordService;
+
+    @Resource
+    private ProjectDownloadService projectDownloadService;
 
     /**
      * 创建应用
@@ -132,7 +137,7 @@ public class AppController {
         }
 
         // 7. 部署链接写入生成记录中
-        String deployUrl = "/lowcode/deploy/" + AppConstant.CODE_OUTPUT_PREFIX + generatedRecord.getFilePrefix() + "/dist/index.html";
+        String deployUrl = "/lowcode-gen/deploy/" + generatedRecord.getFilePrefix();
         // 使用 lambda 更新
         generatedRecordService.lambdaUpdate()
                 .eq(com.mordan.aihub.lowcode.domain.entity.GeneratedRecord::getAppId, appId)
@@ -172,6 +177,41 @@ public class AppController {
 
         return ResultUtils.success(vo);
     }
+
+    @PostMapping("/download/{appId}")
+    public void downloadAppCode(@PathVariable Long appId,
+                                HttpServletResponse response) {
+        // 1. 基础校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+
+        // 2. 查询应用信息
+        Application app = applicationService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+
+        GenerateRecordVO generatedRecord = generatedRecordService.getGeneratedRecord(appId);
+        ThrowUtils.throwIf(generatedRecord == null, ErrorCode.NOT_FOUND_ERROR, "应用未生成代码");
+
+        // 3. 权限校验：只有应用创建者可以下载代码
+        Long userId = userService.getCurrentUserId();
+        if (!app.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限下载该应用代码");
+        }
+
+        // 4. 构建应用代码目录路径（生成目录，非部署目录）
+        String sourceDirPath = generatedRecord.getCodeStoragePath();
+
+        // 5. 检查代码目录是否存在
+        File sourceDir = new File(sourceDirPath);
+        ThrowUtils.throwIf(!sourceDir.exists() || !sourceDir.isDirectory(),
+                ErrorCode.NOT_FOUND_ERROR, "应用代码不存在，请先生成代码");
+
+        // 6. 生成下载文件名（不建议添加中文内容）
+        String downloadFileName = sourceDir.getName();
+
+        // 7. 调用通用下载服务
+        projectDownloadService.downloadProjectAsZip(sourceDirPath, downloadFileName, response);
+    }
+
 
     /**
      * 生成信息响应 VO（只包含 URL，不返回敏感信息）

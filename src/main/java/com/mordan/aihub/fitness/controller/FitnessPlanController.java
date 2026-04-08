@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
  * @author fitness
  */
 @RestController
-@RequestMapping("/api/v1/fitness")
+@RequestMapping("/ai-hub/fitness")
 public class FitnessPlanController {
 
     @Resource

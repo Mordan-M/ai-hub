@@ -63,23 +63,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 放行白名单（不需要登录即可访问）
                         .requestMatchers(
-                                "/api/v1/user/register",
-                                "/api/v1/user/login",
-                                "/actuator/health",
-                                "/demo/*",
-                                "/lowcode/deploy/**",         // 部署后所有人可以访问
-                                "/lowcode/preview/**",    // 预览静态资源（JWT filter 从 Cookie 认证）
-                                // 放行根路径下的静态资源（Vite 输出可能引用绝对路径）
-                                "/*.html",
-                                "/*.js",
-                                "/*.css",
-                                "/*.svg",
-                                "/*.png",
-                                "/*.jpg",
-                                "/*.jpeg",
-                                "/*.gif",
-                                "/*.ico",
-                                "/*.json"
+                                "/ai-hub/user/register",
+                                "/ai-hub/user/login",
+                                "/actuator/health"
                         ).permitAll()
                         // 其余所有路径需要认证
                         .anyRequest().authenticated()

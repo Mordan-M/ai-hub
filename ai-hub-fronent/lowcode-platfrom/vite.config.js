@@ -7,11 +7,7 @@ export default defineConfig({
     host: true,   // 监听 0.0.0.0，局域网 IP 可访问
     port: 38748,
     proxy: {
-      '/api': {
-        target: 'http://localhost:9090',
-        changeOrigin: true,
-      },
-      '/lowcode': {
+      '/ai-hub': {
         target: 'http://localhost:9090',
         changeOrigin: true,
       },

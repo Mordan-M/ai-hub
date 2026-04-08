@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
  * @author auth
  */
 @RestController
-@RequestMapping("/api/v1/user")
+@RequestMapping("/ai-hub/user")
 public class UserController {
 
     private final UserService userService;

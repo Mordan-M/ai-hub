@@ -1,13 +1,13 @@
 import request from "./request";
 
 export const submitPreferences = (data) =>
-  request.post("/api/v1/fitness/preferences", data);
+  request.post("/ai-hub/fitness/preferences", data);
 
 export const getPlan = (planId) =>
-  request.get(`/api/v1/fitness/plans/${planId}`);
+  request.get(`/ai-hub/fitness/plans/${planId}`);
 
 export const getLatestPlan = () =>
-  request.get("/api/v1/fitness/plans/latest");
+  request.get("/ai-hub/fitness/plans/latest");
 
 export const regeneratePlan = (planId) =>
-  request.post(`/api/v1/fitness/plans/${planId}/regenerate`);
+  request.post(`/ai-hub/fitness/plans/${planId}/regenerate`);

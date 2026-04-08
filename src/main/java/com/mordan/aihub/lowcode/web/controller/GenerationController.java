@@ -31,7 +31,7 @@ import java.util.Map;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/lowcode/apps/{appId}")
+@RequestMapping("/ai-hub/lowcode/apps/{appId}")
 public class GenerationController {
 
     @Resource

@@ -17,7 +17,7 @@ import reactor.core.publisher.Flux;
  * @date: 2026/3/6
  **/
 @RestController
-@RequestMapping("/demo/assistant")
+@RequestMapping("/ai-hub/demo/assistant")
 public class AiAssistantController {
 
     @Resource

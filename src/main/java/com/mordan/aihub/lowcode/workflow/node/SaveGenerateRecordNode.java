@@ -72,8 +72,7 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
 //        }
 
         // 设置访问地址并更新记录
-        String previewUrl = AppConstant.PREVIEW_URL_PREFIX + AppConstant.CODE_OUTPUT_PREFIX + buildDirPrefix + "/dist/index.html";
-        String downloadUrl = AppConstant.DOWNLOAD_URL_PREFIX + appId;
+        String previewUrl = AppConstant.PREVIEW_URL_PREFIX + "/" + buildDirPrefix;
 
         GeneratedRecord version = GeneratedRecord.builder()
                 .appId(appId)
@@ -84,7 +83,6 @@ public class SaveGenerateRecordNode implements NodeAction<WorkflowState> {
                 .promptSnapshot(ctx.getUserPrompt())
                 .projectSummary(null)
                 .previewUrl(previewUrl)
-                .downloadUrl(downloadUrl)
                 .build();
         generatedVersionMapper.insert(version);
 
