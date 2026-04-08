@@ -20,6 +20,11 @@ public interface AppConstant {
     /**
      * 预览地址前缀
      */
-    String PREVIEW_URL_PREFIX = "/lowcode-gen/preview/";
+    String PREVIEW_URL_PREFIX = "/lowcode/preview";
+
+    /**
+     * 部署地址前缀
+     */
+    String DEPLOY_URL_PREFIX = "/lowcode/deploy";
 
 }

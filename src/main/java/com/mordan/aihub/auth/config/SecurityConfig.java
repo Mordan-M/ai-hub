@@ -65,7 +65,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/ai-hub/user/register",
                                 "/ai-hub/user/login",
-                                "/actuator/health"
+                                "/actuator/health",
+                                "/lowcode/deploy/**",
+                                "/lowcode/preview/**"
                         ).permitAll()
                         // 其余所有路径需要认证
                         .anyRequest().authenticated()

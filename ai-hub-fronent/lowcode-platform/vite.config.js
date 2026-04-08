@@ -11,6 +11,10 @@ export default defineConfig({
         target: 'http://localhost:9090',
         changeOrigin: true,
       },
+      '/lowcode': {
+        target: 'http://localhost:9090',
+        changeOrigin: true,
+      },
     },
   },
 })
