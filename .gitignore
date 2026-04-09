@@ -1,6 +1,7 @@
 ### CUSTOM ###
 /src/main/resources/application-local.yaml
 /src/main/resources/application-prod.yaml
+/src/main/resources/application-oppo.yaml
 
 HELP.md
 CLAUDE.md

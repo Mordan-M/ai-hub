@@ -613,8 +613,15 @@ function listenToStream(taskId) {
                     scrollToBottom()
                   } else if (currentEvent === 'progress') {
                     const d = JSON.parse(currentData)
-                    progressLabel.value = d.message || '生成中...'; progressPct.value = d.percent || 50
+                    progressLabel.value = d.message || '生成中...';
+                    // 根据重试次数估算进度：重试次数越多，越接近完成
+                    const basePct = 15 + (d.retryCount || 0) * 25;
+                    progressPct.value = Math.min(basePct, 85);
                     scrollToBottom()
+                  } else if (currentEvent === 'rejected') {
+                    const d = JSON.parse(currentData)
+                    messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 请求被拒绝：${d.message || '不支持该请求'}`, createdAt: Date.now() })
+                    scrollToBottom(); done()
                   } else if (currentEvent === 'error') {
                     const d = JSON.parse(currentData)
                     messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 生成失败：${d.message || '未知错误'}`, createdAt: Date.now() })
@@ -667,7 +674,7 @@ function listenToStream(taskId) {
               const data = await request(ENDPOINTS.taskStatus(appId, taskId))
               if (data.code === 0) {
                 const s = data.data.status
-                if (s === 'SUCCESS') {
+                if (s === '成功' || s === 'SUCCESS') {
                   progressLabel.value = '生成完成！'; progressPct.value = 100
                   await new Promise(r => setTimeout(r, 400))
                   await loadConversations()
@@ -682,7 +689,7 @@ function listenToStream(taskId) {
                     console.warn('Failed to load generated info after generation', e)
                   }
                   toast('代码生成成功！', 'success'); done()
-                } else if (s === 'FAILED') {
+                } else if (s === '失败' || s === 'FAILED') {
                   messages.value.push({ id: Date.now(), role: 'ASSISTANT', content: `❌ 生成失败：${data.data.errorMessage || '未知错误'}`, createdAt: Date.now() })
                   await scrollToBottom(); done()
                 } else { progressLabel.value = '处理中...'; progressPct.value = 50 }

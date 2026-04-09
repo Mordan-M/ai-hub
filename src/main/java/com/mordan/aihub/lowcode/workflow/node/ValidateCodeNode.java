@@ -85,9 +85,10 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
 
         Path projectRoot = currentBuildContext.getProjectRoot(appId);
         QualityResult qualityResult;
+        String codeContent = null;
         try {
             // 1. 读取并拼接代码文件内容
-            String codeContent = readAndConcatenateCodeFiles(projectRoot);
+            codeContent = readAndConcatenateCodeFiles(projectRoot);
             if (StrUtil.isBlank(codeContent)) {
                 log.warn("未找到可检查的代码文件");
                 qualityResult = QualityResult.builder()
@@ -97,11 +98,12 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
                         .build();
             } else {
                 // 2. 调用 AI 进行代码质量检查
+                // 使用 @V 模板变量方式，Mustache 不会解析代码内容中的 {{ xxx }}
                 qualityResult = lowCodeStatelessAiService.validateCode(codeContent);
                 log.info("代码质量检查完成 - 是否通过: {}", qualityResult.getIsValid());
             }
         } catch (Exception e) {
-            log.error("代码质量检查异常: {}", e.getMessage(), e);
+            log.error("代码质量检查异常: {}, codeContent={}", e.getMessage(), codeContent, e);
             qualityResult = QualityResult.builder()
                     .isValid(true) // 异常直接跳到下一个步骤
                     .build();
@@ -153,11 +155,15 @@ public class ValidateCodeNode implements NodeAction<WorkflowState> {
         if (file.getName().startsWith(".")) {
             return true;
         }
-        // 跳过特定目录下的文件
-        return relativePath.contains("node_modules" + File.separator) ||
-                relativePath.contains("dist" + File.separator) ||
-                relativePath.contains("target" + File.separator) ||
-                relativePath.contains(".git" + File.separator);
+        // 跳过当前节点就是 dist 目录
+        if (file.getName().equals("dist")) {
+            return true;
+        }
+        // 兼容 Windows(\) 和 Unix(/) 两种路径分隔符
+        return relativePath.contains("node_modules/") || relativePath.contains("node_modules\\") ||
+               relativePath.contains("dist/") || relativePath.contains("dist\\") ||
+               relativePath.contains("target/") || relativePath.contains("target\\") ||
+               relativePath.contains(".git/") || relativePath.contains(".git\\");
     }
 
     /**

@@ -128,7 +128,7 @@ public class LowCodeAiServiceFactory {
         if (memory == null) {
             memory = MessageWindowChatMemory.builder()
                     .id(memoryId)
-                    .maxMessages(50)
+                    .maxMessages(20)
                     .chatMemoryStore(chatMemoryStore) // 关键：绑定持久化 store
                     .build();
             sharedMemoryCache.put(id, memory);

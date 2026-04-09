@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 import java.time.Duration;
+import java.util.Objects;
 
 /**
  * 低代码专用 ChatModel 配置
@@ -24,11 +25,12 @@ public class ChatModelConfig {
     private String apiKey;
     private String modelName;
     private double temperature;
-    private int maxTokens;
+    private Integer maxTokens;
     private boolean logRequests;
     private boolean logResponses;
     private int connectTimeout;
     private int readTimeout;
+    private Integer maxCompletionTokens;
 
     @Resource
     private ChatModelListener chatModelListener;
@@ -40,16 +42,21 @@ public class ChatModelConfig {
         // 我们设置为最大的 readTimeout 给两者，因为 connect 很快
         Duration timeout = Duration.ofMillis(readTimeout);
 
-        return OpenAiChatModel.builder()
+        OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .temperature(temperature)
-                .maxTokens(maxTokens)
                 .logRequests(logRequests)
                 .logResponses(logResponses)
-                .timeout(timeout)
-//                .listeners(List.of(chatModelListener))
-                .build();
+                .timeout(timeout);
+        // 兼容 open ai 新模型
+        if (Objects.nonNull(maxCompletionTokens)) {
+            builder.maxCompletionTokens(maxCompletionTokens);
+        } else {
+            builder.maxTokens(maxTokens);
+        }
+
+        return builder.build();
     }
 }
